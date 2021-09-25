@@ -34,11 +34,27 @@ int main(int argc, char **argv)
         int len = read(fd, rdbuf, sizeof(rdbuf));
         rdbuf[len] = '\0';
 
-        cout << "Received string: " << rdbuf << " of length: " << len <<  '\n';
-
         if (strcmp(rdbuf, "stop") == 0) {
             close(fd);
             break;
+        }
+
+        std::string in (rdbuf);
+        size_t space_pos = in.find(' ');
+
+        if (space_pos > in.size()) {
+            cout << "2nd arg not received\n";
+            continue;
+        }
+
+        std::string opt = in.substr(0, space_pos);
+        std::string val = in.substr(space_pos + 1, in.size());
+        val = val.substr(0, val.find(' '));
+
+        cout << "opt: " << opt << " val: " << val << '\n';
+
+        if (opt == "-b") {
+            cout << "Setting brightness to " << val << "%\n";
         }
     }
 
