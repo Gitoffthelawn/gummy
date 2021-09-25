@@ -1,7 +1,9 @@
 #include <iostream>
 #include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
+
 #include <fcntl.h>
 
 #include <cstdio>
@@ -11,7 +13,7 @@
 using std::cout;
 using std::cin;
 
-constexpr const char* fname = "gummy_fifo";
+constexpr const char* fname = "/tmp/gummy";
 
 int main(int argc, char **argv)
 {
@@ -21,22 +23,20 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    cout << "gummyd starting\n";
+    cout << "gummyd started\n";
 
-    mknod(fname, S_IFIFO|0640, 0);
+    mkfifo(fname, S_IFIFO|0640);
 
     while (1) {
         int fd = open(fname, O_RDONLY);
-
         char rdbuf[255];
 
-        read(fd, rdbuf, sizeof(rdbuf));
-        std::string in = std::string(rdbuf);
+        int len = read(fd, rdbuf, sizeof(rdbuf));
+        rdbuf[len] = '\0';
 
-        cout << "Received string: " << in;
-        cout << ((in == "stop") ? "yes\n" : "no\n");
+        cout << "Received string: " << rdbuf << " of length: " << len <<  '\n';
 
-        if (in == "stop") {
+        if (strcmp(rdbuf, "stop") == 0) {
             close(fd);
             break;
         }
