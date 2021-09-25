@@ -17,13 +17,10 @@ constexpr const char* fname = "/tmp/gummy";
 
 int main(int argc, char **argv)
 {
-    if (argc == 1 || strcmp(argv[1], "start") != 0) {
-        cout << "Gummyd v0.1\n";
-        cout << "Type: 'gummyd start'\n";
+    if (argc > 1 && strcmp(argv[1], "-v") == 0) {
+        cout << "v0.1\n";
         return 0;
     }
-
-    cout << "gummyd started\n";
 
     mkfifo(fname, S_IFIFO|0640);
 
@@ -42,10 +39,8 @@ int main(int argc, char **argv)
         std::string in (rdbuf);
         size_t space_pos = in.find(' ');
 
-        if (space_pos > in.size()) {
-            cout << "2nd arg not received\n";
+        if (space_pos > in.size())
             continue;
-        }
 
         std::string opt = in.substr(0, space_pos);
         std::string val = in.substr(space_pos + 1, in.size());
