@@ -10,6 +10,13 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <plog/Init.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
+#include <plog/Appenders/RollingFileAppender.h>
+
+#include "cfg.h"
+#include "utils.h"
+
 using std::cout;
 using std::cin;
 
@@ -17,42 +24,50 @@ constexpr const char* fname = "/tmp/gummy";
 
 int main(int argc, char **argv)
 {
-    if (argc > 1 && strcmp(argv[1], "-v") == 0) {
-        cout << "v0.1\n";
-        return 0;
-    }
+	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
+		cout << "v0.1\n";
+		return 0;
+	}
 
-    mkfifo(fname, S_IFIFO|0640);
+	static plog::RollingFileAppender<plog::TxtFormatter> f("gammylog.txt", 1024 * 1024 * 5, 1);
+	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
+	plog::init(plog::Severity(plog::debug), &c);
+	const auto logger = plog::get();
+	logger->addAppender(&f);
+	config::read();
+	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
-    while (1) {
-        int fd = open(fname, O_RDONLY);
-        char rdbuf[255];
+	mkfifo(fname, S_IFIFO|0640);
 
-        int len = read(fd, rdbuf, sizeof(rdbuf));
-        rdbuf[len] = '\0';
+	while (1) {
+		int fd = open(fname, O_RDONLY);
+		char rdbuf[255];
 
-        if (strcmp(rdbuf, "stop") == 0) {
-            close(fd);
-            break;
-        }
+		int len = read(fd, rdbuf, sizeof(rdbuf));
+		rdbuf[len] = '\0';
 
-        std::string in (rdbuf);
-        size_t space_pos = in.find(' ');
+		if (strcmp(rdbuf, "stop") == 0) {
+			close(fd);
+			break;
+		}
 
-        if (space_pos > in.size())
-            continue;
+		std::string in (rdbuf);
+		size_t space_pos = in.find(' ');
 
-        std::string opt = in.substr(0, space_pos);
-        std::string val = in.substr(space_pos + 1, in.size());
-        val = val.substr(0, val.find(' '));
+		if (space_pos > in.size())
+			continue;
 
-        cout << "opt: " << opt << " val: " << val << '\n';
+		std::string opt = in.substr(0, space_pos);
+		std::string val = in.substr(space_pos + 1, in.size());
+		val = val.substr(0, val.find(' '));
 
-        if (opt == "-b") {
-            cout << "Setting brightness to " << val << "%\n";
-        }
-    }
+		cout << "opt: " << opt << " val: " << val << '\n';
 
-    cout << "gummyd stopping\n";
-    return 0;
+		if (opt == "-b") {
+			cout << "Setting brightness to " << val << "%\n";
+		}
+	}
+
+	cout << "gummyd stopping\n";
+	return 0;
 }
