@@ -9,9 +9,5 @@ include_directories(include)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-set(SOURCES src/main.cpp
-	src/defs.h
-	src/cfg.h src/cfg.cpp
-	src/utils.h src/utils.cpp)
-
-add_executable(gummyd ${SOURCES})
+file(GLOB SOURCES src/*.cpp)
+add_executable(${PROJECT_NAME} ${SOURCES})
