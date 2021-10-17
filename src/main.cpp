@@ -16,6 +16,7 @@
 
 #include "cfg.h"
 #include "utils.h"
+#include "xorg.h"
 
 using std::cout;
 using std::cin;
@@ -36,6 +37,8 @@ int main(int argc, char **argv)
 	logger->addAppender(&f);
 	config::read();
 	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
+
+	XCB xcb_conn;
 
 	mkfifo(fname, S_IFIFO|0640);
 

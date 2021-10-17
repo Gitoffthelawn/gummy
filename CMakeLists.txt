@@ -11,3 +11,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+find_library(XCB_LIB xcb)
+target_link_libraries(${PROJECT_NAME} PRIVATE "${XCB_LIB}")
