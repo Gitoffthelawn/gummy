@@ -1,4 +1,5 @@
 #include "xorg.h"
+#include <xcb/randr.h>
 
 XCB::XCB()
 {
