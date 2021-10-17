@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	static plog::RollingFileAppender<plog::TxtFormatter> f("gammylog.txt", 1024 * 1024 * 5, 1);
+	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
 	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
 	plog::init(plog::Severity(plog::debug), &c);
 	const auto logger = plog::get();
