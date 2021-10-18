@@ -14,6 +14,7 @@
 #include <plog/Appenders/ColorConsoleAppender.h>
 #include <plog/Appenders/RollingFileAppender.h>
 
+#include "defs.h"
 #include "cfg.h"
 #include "utils.h"
 #include "xorg.h"
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
 	config::read();
 	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
-	XCB xcb_conn;
+	XCB xcb;
 
 	mkfifo(fname, S_IFIFO|0640);
 
@@ -64,10 +65,18 @@ int main(int argc, char **argv)
 		std::string val = in.substr(space_pos + 1, in.size());
 		val = val.substr(0, val.find(' '));
 
-		cout << "opt: " << opt << " val: " << val << '\n';
-
 		if (opt == "-b") {
-			cout << "Setting brightness to " << val << "%\n";
+			LOGD << "Setting brightness to " << val << "%\n";
+			int b = remap(std::stoi(val), 0, 100, 0, brt_steps_max);
+			cfg["brt_step"] = b;
+			xcb.setGamma(b, cfg["temp_step"].get<int>());
+			config::write();
+		} else if (opt == "-t") {
+			LOGD << "Setting temperature to " << val << "%\n";
+			int t = remap(std::stoi(val), temp_k_min, temp_k_max, 0, temp_steps_max);
+			cfg["temp_step"] = t;
+			xcb.setGamma(cfg["brt_step"].get<int>(), t);
+			config::write();
 		}
 	}
 

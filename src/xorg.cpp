@@ -1,10 +1,12 @@
-#include "xorg.h"
+﻿#include "xorg.h"
 #include <xcb/randr.h>
 #include "defs.h"
+#include "utils.h"
 
 XCB::XCB()
 {
 	conn = xcb_connect(nullptr, nullptr);
+	scr_num = 0; // @TODO: remove
 	scr  = screenOfDisplay(scr_num);
 
 	if (!scr) {
@@ -43,6 +45,7 @@ XCB::XCB()
 	}
 
 	init_ramp.resize(3 * size_t(ramp_sz) * sizeof(uint16_t));
+	ramp.resize(3 * size_t(ramp_sz) * sizeof(uint16_t));
 
 	uint16_t *d = init_ramp.data();
 	uint16_t *r, *g, *b;
@@ -59,6 +62,43 @@ XCB::XCB()
 		d[0 * ramp_sz] = *r;
 		d[1 * ramp_sz] = *g;
 		d[2 * ramp_sz] = *b;
+	}
+}
+
+void XCB::fillRamp(const int brt_step, const int temp_step)
+{
+	/**
+	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.
+	 * Assuming ramp_sz = 2048 and pure state (default brightness/temp)
+	 * the RGB channels look like:
+	 * [ 0, 32, 64, 96, ... UINT16_MAX - 32 ]
+	 */
+	uint16_t *r = &ramp[0 * ramp_sz];
+	uint16_t *g = &ramp[1 * ramp_sz];
+	uint16_t *b = &ramp[2 * ramp_sz];
+
+	const double r_mult = interpTemp(temp_step, 0),
+	             g_mult = interpTemp(temp_step, 1),
+	             b_mult = interpTemp(temp_step, 2);
+
+	const int    ramp_mult = (UINT16_MAX + 1) / ramp_sz;
+	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
+
+	for (int i = 0; i < ramp_sz; ++i) {
+		const int val = std::clamp(int(i * brt_mult), 0, UINT16_MAX);
+		r[i] = uint16_t(val * r_mult);
+		g[i] = uint16_t(val * g_mult);
+		b[i] = uint16_t(val * b_mult);
+	}
+}
+
+void XCB::setGamma(const int brt, const int temp)
+{
+	fillRamp(brt, temp);
+	auto cookie = xcb_randr_set_crtc_gamma(conn, crtc_num, ramp_sz, &ramp[0*ramp_sz], &ramp[1*ramp_sz], &ramp[2*ramp_sz]);
+	xcb_generic_error_t *error = xcb_request_check(conn, cookie);
+	if (error) {
+		LOGE << "Randr set gamma err: " << error->error_code;
 	}
 }
 
