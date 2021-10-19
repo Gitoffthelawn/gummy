@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 	for (int i = 1; i < argc; ++i) {
 		s.append(argv[i]);
 		if (i + 1 < argc)
-		    s += ' ';
+			s += ' ';
 	}
 
 	write(fd, s.c_str(), s.size());

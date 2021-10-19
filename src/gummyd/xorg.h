@@ -11,6 +11,7 @@ class XCB
 public:
 	XCB();
 	~XCB();
+	int screensDetected();
 	void setGamma(const int scr_idx, const int brt, const int temp);
 private:
 	xcb_connection_t *conn;

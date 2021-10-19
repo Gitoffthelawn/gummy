@@ -41,6 +41,11 @@ int main(int argc, char **argv)
 
 	XCB xcb;
 
+	int new_screens = xcb.screensDetected() - cfg["screens"].size();
+	if (new_screens > 0) {
+		config::addScreenEntries(cfg, new_screens);
+	}
+
 	mkfifo(fname, S_IFIFO|0640);
 
 	while (1) {
@@ -61,23 +66,59 @@ int main(int argc, char **argv)
 		if (space_pos > in.size())
 			continue;
 
-		std::string opt = in.substr(0, space_pos);
-		std::string val = in.substr(space_pos + 1, in.size());
-		val = val.substr(0, val.find(' '));
+		std::unordered_map<std::string, int> args;
+		args["brt"]    = -1;
+		args["temp"]   = -1;
+		args["screen"] = -1;
 
-		if (opt == "-b") {
-			LOGD << "Setting brightness to " << val << "%\n";
-			int b = remap(std::stoi(val), 0, 100, 0, brt_steps_max);
-			cfg["brt_step"] = b;
-			xcb.setGamma(0, b, cfg["temp_step"].get<int>());
-			config::write();
-		} else if (opt == "-t") {
-			LOGD << "Setting temperature to " << val << "%\n";
-			int t = remap(std::stoi(val), temp_k_min, temp_k_max, 0, temp_steps_max);
-			cfg["temp_step"] = t;
-			xcb.setGamma(0, cfg["brt_step"].get<int>(), t);
-			config::write();
+		for (size_t i = 0; i < in.size(); ++i) {
+			if (in[i] != '-')
+				continue;
+
+			auto space_idx  = in.substr(i, in.size()).find_first_of(' ');
+			std::string opt = in.substr(i, space_idx);
+
+			auto start          = i + opt.size() + 1;
+			auto next_space_idx = in.substr(start, in.size()).find_first_of(' ');
+			std::string val     = in.substr(start, next_space_idx);
+			LOGW << "opt: " << opt << " val: " << val;
+
+			if (opt == "-b") {
+				args["brt"] = std::stoi(val);
+			} else if (opt == "-t") {
+				args["temp"] = std::stoi(val);
+			} else if (opt == "-s") {
+				args["screen"] = std::stoi(val);
+			}
 		}
+
+		if (args["screen"] == -1) {
+			for (int i = 0; i < xcb.screensDetected(); ++i) {
+				if (args["brt"] != -1)
+					cfg["screens"].at(i)["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
+				if (args["temp"] != -1)
+					cfg["screens"].at(i)["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
+				xcb.setGamma(i,
+				             cfg["screens"].at(i)["brt_step"],
+				             cfg["screens"].at(i)["temp_step"]);
+			}
+		} else {
+
+			if (args["screen"] > xcb.screensDetected() - 1) {
+				LOGE << "Screen not available.";
+				continue;
+			}
+
+			if (args["brt"] != -1)
+				cfg["screens"].at(args["screen"])["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
+			if (args["temp"] != -1)
+				cfg["screens"].at(args["screen"])["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
+			xcb.setGamma(args["screen"],
+			        cfg["screens"].at(args["screen"])["brt_step"],
+			        cfg["screens"].at(args["screen"])["temp_step"]);
+		}
+
+		config::write();
 	}
 
 	cout << "gummyd stopping\n";

@@ -93,6 +93,11 @@ void XCB::getDisplays()
 	}
 }
 
+int XCB::screensDetected()
+{
+	return displays.size();
+}
+
 XCB::~XCB()
 {
 	xcb_disconnect(conn);

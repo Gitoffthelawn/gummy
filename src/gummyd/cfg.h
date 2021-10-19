@@ -13,6 +13,7 @@ extern json cfg;
 
 namespace config {
 std::string getPath();
+void addScreenEntries(json&, int);
 void read();
 void write();
 }

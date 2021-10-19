@@ -11,30 +11,43 @@
 
 json getDefault()
 {
-	return
-	{
-		{"brt_auto", true},
-		{"brt_fps", 60},
-		{"brt_step", brt_steps_max},
-		{"brt_min", brt_steps_max / 2},
-		{"brt_max", brt_steps_max},
-		{"brt_offset", brt_steps_max / 3},
-		{"brt_speed", 1000},
-		{"brt_threshold", 8},
-		{"brt_polling_rate", 100},
-		{"brt_extend", false},
+	json ret;
+	config::addScreenEntries(ret, 1);
 
-		{"temp_auto", false},
-		{"temp_fps", 45},
-		{"temp_step", 0},
-		{"temp_high", temp_k_min},
-		{"temp_low", 3400},
-		{"temp_speed", 60.0},
-		{"temp_sunrise", "06:00"},
-		{"temp_sunset", "16:00"},
+	ret["brt_auto_fps"]      = 60;
+	ret["brt_auto_speed"]    = 1000; // ms
 
-		{"log_level", plog::warning},
+	ret["temp_auto_fps"]     = 45;
+	ret["temp_auto_speed"]   = 60; // min
+	ret["temp_auto_sunrise"] = "06:00";
+	ret["temp_auto_sunset"]  = "16:00";
+	ret["temp_auto_high"]    = temp_k_min;
+	ret["temp_auto_low"]     = 3400;
+
+	ret["log_level"] = plog::warning;
+
+	return ret;
+}
+
+void config::addScreenEntries(json &config, int n)
+{
+	json screen = {
+	    {"brt_auto", false},
+	    {"brt_auto_threshold", 8},
+	    {"brt_auto_polling_rate", 100},
+	    {"brt_auto_min", brt_steps_max / 2},
+	    {"brt_auto_max", brt_steps_max},
+	    {"brt_auto_offset", brt_steps_max / 3},
+	    {"brt_step", brt_steps_max},
+	    {"temp_auto", false},
+	    {"temp_step", 0},
 	};
+
+	if (!config.contains("screens"))
+		config["screens"] = json::array();
+
+	while (n--)
+		config["screens"].push_back(screen);
 }
 
 json cfg = getDefault();
