@@ -95,11 +95,7 @@ void XCB::fillRamp(const int brt_step, const int temp_step)
 void XCB::setGamma(const int brt, const int temp)
 {
 	fillRamp(brt, temp);
-	auto cookie = xcb_randr_set_crtc_gamma(conn, crtc_num, ramp_sz, &ramp[0*ramp_sz], &ramp[1*ramp_sz], &ramp[2*ramp_sz]);
-	xcb_generic_error_t *error = xcb_request_check(conn, cookie);
-	if (error) {
-		LOGE << "Randr set gamma err: " << error->error_code;
-	}
+	xcb_randr_set_crtc_gamma(conn, crtc_num, ramp_sz, &ramp[0*ramp_sz], &ramp[1*ramp_sz], &ramp[2*ramp_sz]);
 }
 
 xcb_screen_t* XCB::screenOfDisplay(int screen)
