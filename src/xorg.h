@@ -4,28 +4,25 @@
 #include <xcb/xcb.h>
 #include <vector>
 
+struct Display;
+
 class XCB
 {
 public:
 	XCB();
 	~XCB();
-	void setGamma(const int brt, const int temp);
-
+	void setGamma(const int scr_idx, const int brt, const int temp);
 private:
 	xcb_connection_t *conn;
-	xcb_screen_t *scr;
-	xcb_window_t root;
-	int scr_num;
+	std::vector<Display> displays;
+	void getDisplays();
+};
+
+struct Display {
+	xcb_screen_t *screen;
 	int crtc_num;
 	int ramp_sz;
-
-	std::vector<uint16_t> ramp;
-	std::vector<uint16_t> init_ramp;
-
-	bool initial_ramp_exists = false;
-
-	xcb_screen_t* screenOfDisplay(int screen);
-	void          fillRamp(const int brt_step, const int temp_step);
+	std::vector<uint16_t> ramps;
 };
 
 #endif // XCB_H

@@ -69,13 +69,13 @@ int main(int argc, char **argv)
 			LOGD << "Setting brightness to " << val << "%\n";
 			int b = remap(std::stoi(val), 0, 100, 0, brt_steps_max);
 			cfg["brt_step"] = b;
-			xcb.setGamma(b, cfg["temp_step"].get<int>());
+			xcb.setGamma(0, b, cfg["temp_step"].get<int>());
 			config::write();
 		} else if (opt == "-t") {
 			LOGD << "Setting temperature to " << val << "%\n";
 			int t = remap(std::stoi(val), temp_k_min, temp_k_max, 0, temp_steps_max);
 			cfg["temp_step"] = t;
-			xcb.setGamma(cfg["brt_step"].get<int>(), t);
+			xcb.setGamma(0, cfg["brt_step"].get<int>(), t);
 			config::write();
 		}
 	}
