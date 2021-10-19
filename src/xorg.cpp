@@ -24,9 +24,7 @@ XCB::XCB()
 		exit(1);
 	}
 
-
-	xcb_randr_crtc_t *firstCrtc = xcb_randr_get_screen_resources_crtcs(scr_res_reply);
-	crtc_num = *firstCrtc;
+	crtc_num = *xcb_randr_get_screen_resources_crtcs(scr_res_reply);
 
 	xcb_randr_get_crtc_gamma_reply_t* gamma_reply =
 	                xcb_randr_get_crtc_gamma_reply(conn, xcb_randr_get_crtc_gamma(conn, crtc_num), nullptr);
