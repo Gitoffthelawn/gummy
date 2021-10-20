@@ -12,8 +12,11 @@
 
 typedef std::condition_variable convar;
 
-constexpr const char* app_version = "v0.1";
+constexpr const char* app_version = "0.1";
 constexpr const char* config_name = "gummyconf";
+constexpr const char* fifo_name   = "/tmp/gummy.fifo";
+constexpr const char* lock_name   = "/tmp/gummy.lock";
+
 constexpr int brt_steps_max  = 500;
 constexpr int temp_steps_max = 500;
 constexpr int temp_k_min     = 6500;

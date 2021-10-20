@@ -59,6 +59,6 @@ bool alreadyRunning()
 	fl.l_whence = SEEK_SET;
 	fl.l_start  = 0;
 	fl.l_len    = 1;
-	fd = open("/tmp/gummyd.lock", O_WRONLY | O_CREAT, 0666);
+	fd = open(lock_name, O_WRONLY | O_CREAT, 0666);
 	return fd == -1 || fcntl(fd, F_SETLK, &fl) == -1;
 }

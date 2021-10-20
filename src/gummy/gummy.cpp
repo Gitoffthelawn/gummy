@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
+#include "../gummyd/defs.h"
 
 using std::cout;
 using std::cin;
@@ -23,7 +24,7 @@ int main(int argc, char **argv)
 			return 0;
 	}
 
-	int fd = open("/tmp/gummy", O_CREAT|O_WRONLY);
+	int fd = open(fifo_name, O_CREAT|O_WRONLY);
 
 	std::ostringstream ss;
 	for (int i = 1; i < argc; ++i)

@@ -22,8 +22,6 @@
 using std::cout;
 using std::cin;
 
-constexpr const char* fname = "/tmp/gummy";
-
 int main(int argc, char **argv)
 {
 	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
@@ -50,10 +48,10 @@ int main(int argc, char **argv)
 		config::addScreenEntries(cfg, new_screens);
 	}
 
-	mkfifo(fname, S_IFIFO|0640);
+	mkfifo(fifo_name, S_IFIFO|0640);
 
 	while (1) {
-		int fd = open(fname, O_RDONLY);
+		int fd = open(fifo_name, O_RDONLY);
 		char rdbuf[255];
 
 		int len = read(fd, rdbuf, sizeof(rdbuf));
