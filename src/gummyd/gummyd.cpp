@@ -14,9 +14,9 @@
 #include <plog/Appenders/ColorConsoleAppender.h>
 #include <plog/Appenders/RollingFileAppender.h>
 
-#include "defs.h"
+#include "../commons/defs.h"
+#include "../commons/utils.h"
 #include "cfg.h"
-#include "utils.h"
 #include "xorg.h"
 
 using std::cout;
@@ -32,6 +32,8 @@ int main(int argc, char **argv)
 	if (alreadyRunning()) {
 		return 0;
 	}
+
+	cout << "gummy started\n";
 
 	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
 	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
@@ -123,6 +125,6 @@ int main(int argc, char **argv)
 		config::write();
 	}
 
-	cout << "gummyd stopping\n";
+	cout << "gummy stopped\n";
 	return 0;
 }

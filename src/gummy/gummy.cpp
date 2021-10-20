@@ -4,7 +4,8 @@
 #include <cstring>
 #include <string>
 #include <sstream>
-#include "../gummyd/defs.h"
+#include "../commons/defs.h"
+#include "../commons/utils.h"
 
 using std::cout;
 using std::cin;
@@ -16,12 +17,32 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	bool running = alreadyRunning();
+
+	if (strcmp(argv[1], "status") == 0) {
+		cout << (running ? "running\n" : "stopped\n");
+		return 0;
+	}
+
 	if (strcmp(argv[1], "start") == 0) {
-		pid_t pid = fork();
-		if (pid == 0)
-			execv("./gummyd", argv);
-		else
+		if (running) {
+			cout << "already started.\n";
 			return 0;
+		}
+		pid_t pid = fork();
+		if (pid == 0) {
+			execv("./gummyd", argv);
+		}
+		return 0;
+	}
+
+	if (!running) {
+		if (strcmp(argv[1], "stop") == 0) {
+			cout << "already stopped.\n";
+		} else {
+			cout << "needs to be started first.\nType `gummy start`.\n";
+		}
+		return 0;
 	}
 
 	int fd = open(fifo_name, O_CREAT|O_WRONLY);

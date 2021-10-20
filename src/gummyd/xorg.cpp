@@ -1,7 +1,7 @@
 ﻿#include "xorg.h"
 #include <xcb/randr.h>
-#include "defs.h"
-#include "utils.h"
+#include "../commons/defs.h"
+#include "../commons/utils.h"
 
 XCB::XCB()
 {

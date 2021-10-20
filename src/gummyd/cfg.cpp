@@ -3,9 +3,9 @@
  * License: https://github.com/Fushko/gammy#license
  */
 
+#include "../commons/utils.h"
+#include "../commons/defs.h"
 #include "cfg.h"
-#include "utils.h"
-#include "defs.h"
 #include <fstream>
 #include <iostream>
 

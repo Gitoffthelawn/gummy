@@ -10,8 +10,9 @@ include_directories(include)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+file(GLOB COMMONS src/commons/*.cpp)
 file(GLOB SOURCES src/gummyd/*.cpp)
-add_executable(${DAEMON_TARGET} ${SOURCES})
+add_executable(${DAEMON_TARGET} ${SOURCES} ${COMMONS})
 
 find_library(XCB_LIB "xcb" REQUIRED)
 find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
@@ -19,4 +20,4 @@ target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_LIB}")
 target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_RANDR_LIB}")
 
 file(GLOB CLI_SOURCES src/gummy/*.cpp)
-add_executable(${PROJECT_NAME} ${CLI_SOURCES})
+add_executable(${PROJECT_NAME} ${CLI_SOURCES} ${COMMONS})
