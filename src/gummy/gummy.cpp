@@ -1,13 +1,9 @@
 #include <iostream>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <string>
+#include <sstream>
 
 using std::cout;
 using std::cin;
@@ -15,20 +11,26 @@ using std::cin;
 int main(int argc, char **argv)
 {
 	if (argc == 1) {
-		cout << "gummy v0.1\n";
+		cout << "0.1\n";
 		return 0;
+	}
+
+	if (strcmp(argv[1], "start") == 0) {
+		pid_t pid = fork();
+		if (pid == 0)
+			execv("./gummyd", argv);
+		else
+			return 0;
 	}
 
 	int fd = open("/tmp/gummy", O_CREAT|O_WRONLY);
 
-	std::string s;
-	for (int i = 1; i < argc; ++i) {
-		s.append(argv[i]);
-		if (i + 1 < argc)
-			s += ' ';
-	}
+	std::ostringstream ss;
+	for (int i = 1; i < argc; ++i)
+		ss << argv[i] << ' ';
+	std::string s(ss.str());
 
-	write(fd, s.c_str(), s.size());
+	write(fd, s.c_str(), s.size() - 1);
 	close(fd);
 
 	return 0;

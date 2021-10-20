@@ -27,7 +27,11 @@ constexpr const char* fname = "/tmp/gummy";
 int main(int argc, char **argv)
 {
 	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
-		cout << "v0.1\n";
+		cout << "0.1\n";
+		return 0;
+	}
+
+	if (alreadyRunning()) {
 		return 0;
 	}
 
@@ -81,7 +85,7 @@ int main(int argc, char **argv)
 			auto start          = i + opt.size() + 1;
 			auto next_space_idx = in.substr(start, in.size()).find_first_of(' ');
 			std::string val     = in.substr(start, next_space_idx);
-			LOGW << "opt: " << opt << " val: " << val;
+			LOGV << "opt: " << opt << " val: " << val;
 
 			if (opt == "-b") {
 				args["brt"] = std::stoi(val);
