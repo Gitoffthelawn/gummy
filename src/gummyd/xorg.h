@@ -24,6 +24,7 @@ private:
 
 struct Output {
 	xcb_randr_crtc_t crtc;
+	xcb_randr_get_crtc_info_reply_t info;
 	int ramp_sz;
 	std::vector<uint16_t> ramps;
 };

@@ -106,7 +106,7 @@ int main(int argc, char **argv)
 		} else {
 
 			if (args["screen"] > xcb.screenCount() - 1) {
-				LOGE << "Screen not available.";
+				cout << "Screen " << args["screen"] << " not available.\n";
 				continue;
 			}
 

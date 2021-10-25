@@ -1,5 +1,11 @@
 ﻿#include "xorg.h"
-#include <xcb/randr.h>
+
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#include <xcb/shm.h>
+#include <xcb/xcb_image.h>
+
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
@@ -24,11 +30,15 @@ XCB::XCB()
 	outputs.reserve(crtc_count);
 
 	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
-
 	for (int i = 0; i < crtc_count; ++i) {
 		Output o;
 		o.crtc = crtcs[i];
-		outputs.push_back(o);
+		auto crtc_info_ck = xcb_randr_get_crtc_info(conn, o.crtc, 0);
+		o.info = *xcb_randr_get_crtc_info_reply(conn, crtc_info_ck, nullptr);
+
+		// If the screen is connected
+		if (o.info.num_outputs > 0)
+			outputs.push_back(o);
 	}
 
 	free(scr_rpl);
