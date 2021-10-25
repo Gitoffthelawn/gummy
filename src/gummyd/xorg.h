@@ -2,26 +2,28 @@
 #define XCB_H
 
 #include <xcb/xcb.h>
+#include <xcb/randr.h>
 #include <vector>
 
-struct Display;
+struct Output;
 
 class XCB
 {
 public:
 	XCB();
 	~XCB();
-	int screensDetected();
+	int screenCount();
 	void setGamma(const int scr_idx, const int brt, const int temp);
 private:
 	xcb_connection_t *conn;
-	std::vector<Display> displays;
-	void getDisplays();
+	xcb_screen_t *screen;
+	int pref_screen;
+	int crtc_count;
+	std::vector<Output> outputs;
 };
 
-struct Display {
-	xcb_screen_t *screen;
-	int crtc_num;
+struct Output {
+	xcb_randr_crtc_t crtc;
 	int ramp_sz;
 	std::vector<uint16_t> ramps;
 };

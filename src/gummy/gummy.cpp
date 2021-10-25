@@ -29,6 +29,7 @@ int main(int argc, char **argv)
 			cout << "already started.\n";
 			return 0;
 		}
+		cout << "starting gummy\n";
 		pid_t pid = fork();
 		if (pid == 0) {
 			execv("./gummyd", argv);

@@ -20,7 +20,6 @@
 #include "xorg.h"
 
 using std::cout;
-using std::cin;
 
 int main(int argc, char **argv)
 {
@@ -33,8 +32,6 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	cout << "gummy started\n";
-
 	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
 	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
 	plog::init(plog::Severity(plog::debug), &c);
@@ -45,7 +42,7 @@ int main(int argc, char **argv)
 
 	XCB xcb;
 
-	int new_screens = xcb.screensDetected() - cfg["screens"].size();
+	int new_screens = xcb.screenCount() - cfg["screens"].size();
 	if (new_screens > 0) {
 		config::addScreenEntries(cfg, new_screens);
 	}
@@ -97,7 +94,7 @@ int main(int argc, char **argv)
 		}
 
 		if (args["screen"] == -1) {
-			for (int i = 0; i < xcb.screensDetected(); ++i) {
+			for (int i = 0; i < xcb.screenCount(); ++i) {
 				if (args["brt"] != -1)
 					cfg["screens"].at(i)["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
 				if (args["temp"] != -1)
@@ -108,7 +105,7 @@ int main(int argc, char **argv)
 			}
 		} else {
 
-			if (args["screen"] > xcb.screensDetected() - 1) {
+			if (args["screen"] > xcb.screenCount() - 1) {
 				LOGE << "Screen not available.";
 				continue;
 			}
