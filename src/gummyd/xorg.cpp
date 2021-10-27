@@ -27,7 +27,6 @@ XCB::XCB()
 	auto *scr_rpl = xcb_randr_get_screen_resources_reply(conn, scr_ck, 0);
 
 	crtc_count = scr_rpl->num_crtcs;
-	outputs.reserve(crtc_count);
 
 	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
 	for (int i = 0; i < crtc_count; ++i) {
