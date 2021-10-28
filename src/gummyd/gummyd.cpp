@@ -61,6 +61,8 @@ int main(int argc, char **argv)
 			break;
 		}
 
+		cout << "screen 0: " << xcb.getScreenBrightness(0) << ", screen 1: " << xcb.getScreenBrightness(1) << '\n';
+
 		std::string in (rdbuf);
 		size_t space_pos = in.find(' ');
 

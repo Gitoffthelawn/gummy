@@ -9,6 +9,8 @@
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
+#include <iostream>
+
 XCB::XCB()
 {
 	conn = xcb_connect(nullptr, &pref_screen);
@@ -29,15 +31,63 @@ XCB::XCB()
 	crtc_count = scr_rpl->num_crtcs;
 
 	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
+
 	for (int i = 0; i < crtc_count; ++i) {
+
 		Output o;
 		o.crtc = crtcs[i];
-		auto crtc_info_ck = xcb_randr_get_crtc_info(conn, o.crtc, 0);
-		o.info = *xcb_randr_get_crtc_info_reply(conn, crtc_info_ck, nullptr);
 
-		// If the screen is connected
-		if (o.info.num_outputs > 0)
-			outputs.push_back(o);
+		auto crtc_info_ck = xcb_randr_get_crtc_info(conn, o.crtc, 0);
+		o.info            = xcb_randr_get_crtc_info_reply(conn, crtc_info_ck, nullptr);
+
+		if (o.info->num_outputs == 0)
+			continue;
+
+		xcb_generic_error_t *err;
+
+		o.shminfo.shmseg = xcb_generate_id(conn);
+		auto csck = xcb_shm_create_segment(conn,
+		                                   o.shminfo.shmseg,
+		                                   o.info->width * o.info->height * 4,
+		                                   0);
+		xcb_shm_create_segment_reply(conn, csck, &err);
+
+		if (err) {
+			LOGF << "xcb_shm_create_segment err: " << err->error_code << '\n';
+			exit(1);
+		}
+
+		o.pixmap_id = xcb_generate_id(conn);
+
+		xcb_shm_create_pixmap_checked(conn,
+		                              o.pixmap_id,
+		                              screen->root,
+		                              o.info->width,
+		                              o.info->height,
+		                              screen->root_depth,
+		                              o.shminfo.shmseg,
+		                              0);
+
+		o.shminfo.shmid = shmget(IPC_PRIVATE, o.info->width * o.info->height * 4, IPC_CREAT | 0600);
+
+		void *shm = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
+
+		if (shm == reinterpret_cast<void*>(-1)) {
+			LOGF << "shmat failed";
+			exit(1);
+		}
+
+		o.shminfo.shmaddr = reinterpret_cast<uint8_t*>(shm);
+
+		auto void_ck = xcb_shm_attach_checked(conn, o.shminfo.shmseg, o.shminfo.shmid, 0);
+		err = xcb_request_check(conn, void_ck);
+
+		if (err) {
+			LOGF << "xcb_shm_attach_checked err: " << int(err->error_code) << '\n';
+			exit(1);
+		}
+
+		outputs.push_back(o);
 	}
 
 	free(scr_rpl);
@@ -49,6 +99,46 @@ XCB::XCB()
 		o.ramps.resize(3 * size_t(o.ramp_sz) * sizeof(uint16_t));
 		free(gamma_rpl);
 	}
+}
+
+int XCB::getScreenBrightness(const int scr_idx)
+{
+    Output *o = &outputs[scr_idx];
+/*
+    xcb_image_shm_get(
+        conn,
+        screen->root,
+        nullptr,
+        o->shminfo,
+        o->info.x,
+        o->info.y,
+        XCB_GC_FOREGROUND
+    );*/
+
+    xcb_generic_error_t *err;
+    auto ck = xcb_shm_get_image(conn, screen->root,
+                      o->info->x,
+                      o->info->y,
+                      o->info->width,
+                      o->info->height,
+                      0,
+                      XCB_IMAGE_FORMAT_Z_PIXMAP,
+                      o->shminfo.shmseg,
+                      0);
+
+    auto reply = xcb_shm_get_image_reply(conn, ck, &err);
+
+    if (err) {
+        LOGF << "xcb_shm_get_image err: " << err->error_code;
+        exit(1);
+    }
+
+    return calcBrightness(
+        o->shminfo.shmaddr,
+        o->info->width * o->info->height * 4,
+        4,
+        1024
+     );
 }
 
 void XCB::setGamma(const int scr_idx, const int brt_step, const int temp_step)
