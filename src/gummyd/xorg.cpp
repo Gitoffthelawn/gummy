@@ -3,147 +3,116 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#include <xcb/shm.h>
-#include <xcb/xcb_image.h>
-
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
 #include <iostream>
 
-XCB::XCB()
+Xorg::Xorg()
 {
-	conn = xcb_connect(nullptr, &pref_screen);
+	m_conn = xcb_connect(nullptr, &m_pref_screen);
 
-	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(conn));
+	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(m_conn));
 
 	for (int i = 0; iter.rem > 0; --i) {
-		if (i == pref_screen) {
-			screen = iter.data;
+		if (i == m_pref_screen) {
+			m_screen = iter.data;
 			break;
 		}
 		xcb_screen_next(&iter);
 	}
 
-	auto scr_ck   = xcb_randr_get_screen_resources(conn, screen->root);
-	auto *scr_rpl = xcb_randr_get_screen_resources_reply(conn, scr_ck, 0);
+	auto scr_ck   = xcb_randr_get_screen_resources(m_conn, m_screen->root);
+	auto *scr_rpl = xcb_randr_get_screen_resources_reply(m_conn, scr_ck, 0);
 
-	crtc_count = scr_rpl->num_crtcs;
+	m_crtc_count = scr_rpl->num_crtcs;
 
 	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
 
-	for (int i = 0; i < crtc_count; ++i) {
+	m_dsp            = XOpenDisplay(nullptr);
+	m_xlib_root      = DefaultRootWindow(m_dsp);
+	m_xlib_screen    = DefaultScreenOfDisplay(m_dsp);
+	int scr          = XDefaultScreen(m_dsp);
+
+	for (int i = 0; i < m_crtc_count; ++i) {
 
 		Output o;
 		o.crtc = crtcs[i];
 
-		auto crtc_info_ck = xcb_randr_get_crtc_info(conn, o.crtc, 0);
-		o.info            = xcb_randr_get_crtc_info_reply(conn, crtc_info_ck, nullptr);
+		auto crtc_info_ck = xcb_randr_get_crtc_info(m_conn, o.crtc, 0);
+		o.info            = xcb_randr_get_crtc_info_reply(m_conn, crtc_info_ck, nullptr);
 
 		if (o.info->num_outputs == 0)
 			continue;
 
-		xcb_generic_error_t *err;
 
-		o.shminfo.shmseg = xcb_generate_id(conn);
-		auto csck = xcb_shm_create_segment(conn,
-		                                   o.shminfo.shmseg,
-		                                   o.info->width * o.info->height * 4,
-		                                   0);
-		xcb_shm_create_segment_reply(conn, csck, &err);
-
-		if (err) {
-			LOGF << "xcb_shm_create_segment err: " << err->error_code << '\n';
-			exit(1);
-		}
-
-		o.pixmap_id = xcb_generate_id(conn);
-
-		xcb_shm_create_pixmap_checked(conn,
-		                              o.pixmap_id,
-		                              screen->root,
-		                              o.info->width,
-		                              o.info->height,
-		                              screen->root_depth,
-		                              o.shminfo.shmseg,
-		                              0);
-
-		o.shminfo.shmid = shmget(IPC_PRIVATE, o.info->width * o.info->height * 4, IPC_CREAT | 0600);
-
-		void *shm = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
-
+		/*o.shminfo.shmid = shmget(IPC_PRIVATE, default_scr->width * default_scr->height * 4, IPC_CREAT | 0600);
+		void *shm       = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
 		if (shm == reinterpret_cast<void*>(-1)) {
 			LOGF << "shmat failed";
 			exit(1);
 		}
+		o.shminfo.shmaddr  = o.image->data = reinterpret_cast<char*>(shm);
+		o.shminfo.readOnly = False;
 
-		o.shminfo.shmaddr = reinterpret_cast<uint8_t*>(shm);
+		XShmAttach(dsp, &o.shminfo);*/
 
-		auto void_ck = xcb_shm_attach_checked(conn, o.shminfo.shmseg, o.shminfo.shmid, 0);
-		err = xcb_request_check(conn, void_ck);
-
-		if (err) {
-			LOGF << "xcb_shm_attach_checked err: " << int(err->error_code) << '\n';
-			exit(1);
-		}
-
-		outputs.push_back(o);
+		m_outputs.push_back(o);
 	}
 
 	free(scr_rpl);
 
-	for (auto &o : outputs) {
-		auto gamma_ck  = xcb_randr_get_crtc_gamma(conn, o.crtc);
-		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(conn, gamma_ck, nullptr);
+	for (auto &o : m_outputs) {
+
+		// Gamma
+		auto gamma_ck  = xcb_randr_get_crtc_gamma(m_conn, o.crtc);
+		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(m_conn, gamma_ck, nullptr);
 		o.ramp_sz = gamma_rpl->size;
 		o.ramps.resize(3 * size_t(o.ramp_sz) * sizeof(uint16_t));
 		free(gamma_rpl);
+
+		// Shm
+		o.image = XShmCreateImage(
+		   m_dsp,
+		   XDefaultVisual(m_dsp, scr),
+		   DefaultDepth(m_dsp, scr),
+		   ZPixmap,
+		   nullptr,
+		   &o.shminfo,
+		   o.info->width,
+		   o.info->height
+		);
+
+		o.image_len     = o.info->width * o.info->height * 4;
+		o.shminfo.shmid = shmget(IPC_PRIVATE, o.image_len, IPC_CREAT | 0600);
+		void *shm       = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
+		if (shm == reinterpret_cast<void*>(-1)) {
+			LOGF << "shmat failed";
+			exit(1);
+		}
+		o.shminfo.shmaddr  = o.image->data = reinterpret_cast<char*>(shm);
+		o.shminfo.readOnly = False;
+		XShmAttach(m_dsp, &o.shminfo);
 	}
 }
 
-int XCB::getScreenBrightness(const int scr_idx)
+int Xorg::getScreenBrightness(const int scr_idx)
 {
-    Output *o = &outputs[scr_idx];
-/*
-    xcb_image_shm_get(
-        conn,
-        screen->root,
-        nullptr,
-        o->shminfo,
-        o->info.x,
-        o->info.y,
-        XCB_GC_FOREGROUND
-    );*/
+	Output *o = &m_outputs[scr_idx];
 
-    xcb_generic_error_t *err;
-    auto ck = xcb_shm_get_image(conn, screen->root,
-                      o->info->x,
-                      o->info->y,
-                      o->info->width,
-                      o->info->height,
-                      0,
-                      XCB_IMAGE_FORMAT_Z_PIXMAP,
-                      o->shminfo.shmseg,
-                      0);
+	XShmGetImage(m_dsp, m_xlib_root, o->image, o->info->x, o->info->y, AllPlanes);
 
-    auto reply = xcb_shm_get_image_reply(conn, ck, &err);
-
-    if (err) {
-        LOGF << "xcb_shm_get_image err: " << err->error_code;
-        exit(1);
-    }
-
-    return calcBrightness(
-        o->shminfo.shmaddr,
-        o->info->width * o->info->height * 4,
-        4,
-        1024
-     );
+	return calcBrightness(
+	    reinterpret_cast<uint8_t*>(o->image->data),
+	    o->image_len,
+	    4,
+	    1024
+	 );
 }
 
-void XCB::setGamma(const int scr_idx, const int brt_step, const int temp_step)
+void Xorg::setGamma(const int scr_idx, const int brt_step, const int temp_step)
 {
-	Output *o = &outputs[scr_idx];
+	Output *o = &m_outputs[scr_idx];
 
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.
@@ -169,21 +138,21 @@ void XCB::setGamma(const int scr_idx, const int brt_step, const int temp_step)
 		b[i] = uint16_t(val * b_mult);
 	}
 
-	auto c = xcb_randr_set_crtc_gamma_checked(conn, o->crtc, o->ramp_sz, r, g, b);
+	auto c = xcb_randr_set_crtc_gamma_checked(m_conn, o->crtc, o->ramp_sz, r, g, b);
 
-	xcb_generic_error_t *error = xcb_request_check(conn, c);
+	xcb_generic_error_t *error = xcb_request_check(m_conn, c);
 
 	if (error) {
 		LOGE << "randr set gamma error: " << error->error_code;
 	}
 }
 
-int XCB::screenCount()
+int Xorg::screenCount()
 {
-	return outputs.size();
+	return m_outputs.size();
 }
 
-XCB::~XCB()
+Xorg::~Xorg()
 {
-	xcb_disconnect(conn);
+	xcb_disconnect(m_conn);
 }

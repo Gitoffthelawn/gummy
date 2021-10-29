@@ -40,11 +40,17 @@ int main(int argc, char **argv)
 	config::read();
 	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
-	XCB xcb;
+	Xorg xorg;
 
-	int new_screens = xcb.screenCount() - cfg["screens"].size();
+	int new_screens = xorg.screenCount() - cfg["screens"].size();
 	if (new_screens > 0) {
 		config::addScreenEntries(cfg, new_screens);
+	}
+
+	while (true) {
+		cout << "screen 0: " << xorg.getScreenBrightness(0) << '\n';
+		cout << "screen 1: " << xorg.getScreenBrightness(1) << '\n';
+		sleep(1);
 	}
 
 	mkfifo(fifo_name, S_IFIFO|0640);
@@ -60,8 +66,6 @@ int main(int argc, char **argv)
 			close(fd);
 			break;
 		}
-
-		cout << "screen 0: " << xcb.getScreenBrightness(0) << ", screen 1: " << xcb.getScreenBrightness(1) << '\n';
 
 		std::string in (rdbuf);
 		size_t space_pos = in.find(' ');
@@ -96,18 +100,18 @@ int main(int argc, char **argv)
 		}
 
 		if (args["screen"] == -1) {
-			for (int i = 0; i < xcb.screenCount(); ++i) {
+			for (int i = 0; i < xorg.screenCount(); ++i) {
 				if (args["brt"] != -1)
 					cfg["screens"].at(i)["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
 				if (args["temp"] != -1)
 					cfg["screens"].at(i)["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
-				xcb.setGamma(i,
+				xorg.setGamma(i,
 				             cfg["screens"].at(i)["brt_step"],
 				             cfg["screens"].at(i)["temp_step"]);
 			}
 		} else {
 
-			if (args["screen"] > xcb.screenCount() - 1) {
+			if (args["screen"] > xorg.screenCount() - 1) {
 				cout << "Screen " << args["screen"] << " not available.\n";
 				continue;
 			}
@@ -116,7 +120,7 @@ int main(int argc, char **argv)
 				cfg["screens"].at(args["screen"])["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
 			if (args["temp"] != -1)
 				cfg["screens"].at(args["screen"])["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
-			xcb.setGamma(args["screen"],
+			xorg.setGamma(args["screen"],
 			        cfg["screens"].at(args["screen"])["brt_step"],
 			        cfg["screens"].at(args["screen"])["temp_step"]);
 		}

@@ -16,12 +16,11 @@ add_executable(${DAEMON_TARGET} ${SOURCES} ${COMMONS})
 
 find_library(XCB_LIB "xcb" REQUIRED)
 find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
-find_library(XCB_SHM_LIB "xcb-shm" REQUIRED)
-find_library(XCB_IMAGE_LIB "xcb-image" REQUIRED)
 target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_LIB}")
 target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_RANDR_LIB}")
-target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_SHM_LIB}")
-target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_IMAGE_LIB}")
+
+find_package(X11 REQUIRED)
+target_link_libraries(${DAEMON_TARGET} PRIVATE ${X11_LIBRARIES})
 
 file(GLOB CLI_SOURCES src/gummy/*.cpp)
 add_executable(${PROJECT_NAME} ${CLI_SOURCES} ${COMMONS})

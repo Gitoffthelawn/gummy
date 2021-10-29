@@ -3,26 +3,35 @@
 
 #include <xcb/xcb.h>
 #include <xcb/randr.h>
-#include <xcb/shm.h>
-#include <xcb/xcb_image.h>
+//#include <xcb/shm.h>
+//#include <xcb/xcb_image.h>
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/extensions/XShm.h>
+
 #include <vector>
 
 struct Output;
 
-class XCB
+class Xorg
 {
 public:
-	XCB();
-	~XCB();
+	Xorg();
+	~Xorg();
 	int screenCount();
 	void setGamma(const int scr_idx, const int brt, const int temp);
 	int getScreenBrightness(const int scr_idx);
 private:
-	xcb_connection_t *conn;
-	xcb_screen_t *screen;
-	int pref_screen;
-	int crtc_count;
-	std::vector<Output> outputs;
+	xcb_connection_t *m_conn;
+	xcb_screen_t *m_screen;
+	int m_pref_screen;
+	int m_crtc_count;
+	std::vector<Output> m_outputs;
+
+	Display *m_dsp;
+	Screen  *m_xlib_screen;
+	Window  m_xlib_root;
 };
 
 struct Output {
@@ -30,9 +39,10 @@ struct Output {
 	xcb_randr_get_crtc_info_reply_t *info;
 	int ramp_sz;
 	std::vector<uint16_t> ramps;
-	xcb_pixmap_t pixmap_id;
 
-	xcb_shm_segment_info_t shminfo;
+	XImage *image;
+	uint64_t image_len;
+	XShmSegmentInfo shminfo;
 };
 
 #endif // XCB_H

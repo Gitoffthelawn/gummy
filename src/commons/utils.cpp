@@ -15,6 +15,7 @@ int calcBrightness(uint8_t *buf, uint64_t buf_sz, int bytes_per_pixel, int strid
 		rgb[1] += buf[i + 1];
 		rgb[2] += buf[i];
 	}
+
 	return (rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722) * stride / (buf_sz / bytes_per_pixel);
 }
 
