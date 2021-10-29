@@ -3,6 +3,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+#include "cfg.h"
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
@@ -99,38 +100,49 @@ int Xorg::getScreenBrightness(const int scr_idx)
 
 void Xorg::setGamma(const int scr_idx, const int brt_step, const int temp_step)
 {
-	Output *o = &m_outputs[scr_idx];
+	applyGammaRamp(m_outputs[scr_idx], brt_step, temp_step);
+}
 
+void Xorg::setGamma()
+{
+	for (size_t i = 0; i < m_outputs.size(); ++i)
+		applyGammaRamp(
+		    m_outputs[i],
+		    cfg["screens"].at(i)["brt_step"],
+		    cfg["screens"].at(i)["temp_step"]
+		);
+}
+
+void Xorg::applyGammaRamp(Output &o, int brt_step, int temp_step)
+{
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.
 	 * Assuming ramp_sz = 2048 and pure state (default brightness/temp)
 	 * the RGB channels look like:
 	 * [ 0, 32, 64, 96, ... UINT16_MAX - 32 ]
 	 */
-	uint16_t *r = &o->ramps[0 * o->ramp_sz];
-	uint16_t *g = &o->ramps[1 * o->ramp_sz];
-	uint16_t *b = &o->ramps[2 * o->ramp_sz];
+	uint16_t *r = &o.ramps[0 * o.ramp_sz];
+	uint16_t *g = &o.ramps[1 * o.ramp_sz];
+	uint16_t *b = &o.ramps[2 * o.ramp_sz];
 
 	const double r_mult = interpTemp(temp_step, 0),
 	             g_mult = interpTemp(temp_step, 1),
 	             b_mult = interpTemp(temp_step, 2);
 
-	const int    ramp_mult = (UINT16_MAX + 1) / o->ramp_sz;
+	const int    ramp_mult = (UINT16_MAX + 1) / o.ramp_sz;
 	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
 
-	for (int i = 0; i < o->ramp_sz; ++i) {
+	for (int i = 0; i < o.ramp_sz; ++i) {
 		const int val = std::clamp(int(i * brt_mult), 0, UINT16_MAX);
 		r[i] = uint16_t(val * r_mult);
 		g[i] = uint16_t(val * g_mult);
 		b[i] = uint16_t(val * b_mult);
 	}
 
-	auto c = xcb_randr_set_crtc_gamma_checked(m_conn, o->crtc, o->ramp_sz, r, g, b);
-
+	auto c = xcb_randr_set_crtc_gamma_checked(m_conn, o.crtc, o.ramp_sz, r, g, b);
 	xcb_generic_error_t *error = xcb_request_check(m_conn, c);
-
 	if (error) {
-		LOGE << "randr set gamma error: " << error->error_code;
+		LOGE << "randr set gamma error: " << int(error->error_code);
 	}
 }
 
@@ -142,4 +154,5 @@ int Xorg::screenCount()
 Xorg::~Xorg()
 {
 	xcb_disconnect(m_conn);
+	XCloseDisplay(m_dsp);
 }

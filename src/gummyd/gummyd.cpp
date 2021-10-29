@@ -17,7 +17,9 @@
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 #include "cfg.h"
+
 #include "xorg.h"
+#include "screenctl.h"
 
 using std::cout;
 
@@ -41,16 +43,11 @@ int main(int argc, char **argv)
 	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
 	Xorg xorg;
+	ScreenCtl screenctl(&xorg);
 
 	int new_screens = xorg.screenCount() - cfg["screens"].size();
 	if (new_screens > 0) {
 		config::addScreenEntries(cfg, new_screens);
-	}
-
-	while (true) {
-		cout << "screen 0: " << xorg.getScreenBrightness(0) << '\n';
-		cout << "screen 1: " << xorg.getScreenBrightness(1) << '\n';
-		sleep(1);
 	}
 
 	mkfifo(fifo_name, S_IFIFO|0640);

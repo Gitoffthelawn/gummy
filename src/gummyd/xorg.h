@@ -21,8 +21,10 @@ public:
 	~Xorg();
 	int screenCount();
 	void setGamma(const int scr_idx, const int brt, const int temp);
+	void setGamma();
 	int getScreenBrightness(const int scr_idx);
 private:
+	void applyGammaRamp(Output &, const int brt_step, const int temp_step);
 	xcb_connection_t *m_conn;
 	xcb_screen_t *m_screen;
 	int m_pref_screen;

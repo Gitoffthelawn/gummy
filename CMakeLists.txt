@@ -22,5 +22,8 @@ target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_RANDR_LIB}")
 find_package(X11 REQUIRED)
 target_link_libraries(${DAEMON_TARGET} PRIVATE ${X11_LIBRARIES})
 
+find_package(Threads REQUIRED)
+target_link_libraries(${DAEMON_TARGET} PRIVATE Threads::Threads)
+
 file(GLOB CLI_SOURCES src/gummy/*.cpp)
 add_executable(${PROJECT_NAME} ${CLI_SOURCES} ${COMMONS})
