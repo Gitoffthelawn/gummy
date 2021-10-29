@@ -24,8 +24,7 @@ Xorg::Xorg()
 
 	auto scr_ck   = xcb_randr_get_screen_resources(m_conn, m_screen->root);
 	auto *scr_rpl = xcb_randr_get_screen_resources_reply(m_conn, scr_ck, 0);
-
-	m_crtc_count = scr_rpl->num_crtcs;
+	m_crtc_count  = scr_rpl->num_crtcs;
 
 	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
 
@@ -44,18 +43,6 @@ Xorg::Xorg()
 
 		if (o.info->num_outputs == 0)
 			continue;
-
-
-		/*o.shminfo.shmid = shmget(IPC_PRIVATE, default_scr->width * default_scr->height * 4, IPC_CREAT | 0600);
-		void *shm       = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
-		if (shm == reinterpret_cast<void*>(-1)) {
-			LOGF << "shmat failed";
-			exit(1);
-		}
-		o.shminfo.shmaddr  = o.image->data = reinterpret_cast<char*>(shm);
-		o.shminfo.readOnly = False;
-
-		XShmAttach(dsp, &o.shminfo);*/
 
 		m_outputs.push_back(o);
 	}
