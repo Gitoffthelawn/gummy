@@ -11,6 +11,7 @@
 
 Xorg::Xorg()
 {
+	XInitThreads();
 	m_conn = xcb_connect(nullptr, &m_pref_screen);
 
 	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(m_conn));

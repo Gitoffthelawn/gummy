@@ -23,33 +23,8 @@
 
 using std::cout;
 
-int main(int argc, char **argv)
+void readMessages(Xorg &xorg)
 {
-	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
-		cout << "0.1\n";
-		return 0;
-	}
-
-	if (alreadyRunning()) {
-		return 0;
-	}
-
-	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
-	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
-	plog::init(plog::Severity(plog::debug), &c);
-	const auto logger = plog::get();
-	logger->addAppender(&f);
-	config::read();
-	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
-
-	Xorg xorg;
-	ScreenCtl screenctl(&xorg);
-
-	int new_screens = xorg.screenCount() - cfg["screens"].size();
-	if (new_screens > 0) {
-		config::addScreenEntries(cfg, new_screens);
-	}
-
 	mkfifo(fifo_name, S_IFIFO|0640);
 
 	while (1) {
@@ -124,6 +99,36 @@ int main(int argc, char **argv)
 
 		config::write();
 	}
+}
+
+int main(int argc, char **argv)
+{
+	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
+		cout << "0.1\n";
+		return 0;
+	}
+
+	if (alreadyRunning()) {
+		return 0;
+	}
+
+	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
+	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
+	plog::init(plog::Severity(plog::debug), &c);
+	const auto logger = plog::get();
+	logger->addAppender(&f);
+	config::read();
+	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
+
+	Xorg xorg;
+	ScreenCtl screenctl(&xorg);
+
+	int new_screens = xorg.screenCount() - cfg["screens"].size();
+	if (new_screens > 0) {
+		config::addScreenEntries(cfg, new_screens);
+	}
+
+	readMessages(xorg);
 
 	cout << "gummy stopped\n";
 	return 0;
