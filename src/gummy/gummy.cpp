@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	int fd = open(fifo_name, O_CREAT|O_WRONLY);
+	int fd = open(fifo_name, O_CREAT|O_WRONLY, 0600);
 
 	std::ostringstream ss;
 	for (int i = 1; i < argc; ++i)

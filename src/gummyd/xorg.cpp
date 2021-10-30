@@ -109,8 +109,8 @@ void Xorg::setGamma()
 	for (size_t i = 0; i < m_outputs.size(); ++i)
 		applyGammaRamp(
 		    m_outputs[i],
-		    cfg["screens"].at(i)["brt_step"],
-		    cfg["screens"].at(i)["temp_step"]
+		    cfg["screens"][i]["brt_step"],
+		    cfg["screens"][i]["temp_step"]
 		);
 }
 

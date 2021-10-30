@@ -11,7 +11,6 @@
 #include <cstring>
 
 #include <plog/Init.h>
-#include <plog/Appenders/ColorConsoleAppender.h>
 #include <plog/Appenders/RollingFileAppender.h>
 
 #include "../commons/defs.h"
@@ -45,10 +44,10 @@ void readMessages(Xorg &xorg)
 		if (space_pos > in.size())
 			continue;
 
-		std::unordered_map<std::string, int> args;
-		args["brt"]    = -1;
-		args["temp"]   = -1;
-		args["screen"] = -1;
+		std::map<std::string, int> fl;
+		fl["brt"]    = -1;
+		fl["temp"]   = -1;
+		fl["screen"] = -1;
 
 		for (size_t i = 0; i < in.size(); ++i) {
 			if (in[i] != '-')
@@ -63,38 +62,38 @@ void readMessages(Xorg &xorg)
 			LOGV << "opt: " << opt << " val: " << val;
 
 			if (opt == "-b") {
-				args["brt"] = std::stoi(val);
+				fl["brt"] = std::stoi(val);
 			} else if (opt == "-t") {
-				args["temp"] = std::stoi(val);
+				fl["temp"] = std::stoi(val);
 			} else if (opt == "-s") {
-				args["screen"] = std::stoi(val);
+				fl["screen"] = std::stoi(val);
 			}
 		}
 
-		if (args["screen"] == -1) {
+		if (fl["screen"] == -1) {
 			for (int i = 0; i < xorg.screenCount(); ++i) {
-				if (args["brt"] != -1)
-					cfg["screens"].at(i)["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
-				if (args["temp"] != -1)
-					cfg["screens"].at(i)["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
-				xorg.setGamma(i,
-				             cfg["screens"].at(i)["brt_step"],
-				             cfg["screens"].at(i)["temp_step"]);
+				if (fl["brt"] != -1)
+					cfg["screens"][i]["brt_step"] = int(remap(fl["brt"], 0, 100, 0, brt_steps_max));
+				if (fl["temp"] != -1)
+					cfg["screens"][i]["temp_step"] = int(remap(fl["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
+
+				xorg.setGamma();
 			}
 		} else {
 
-			if (args["screen"] > xorg.screenCount() - 1) {
-				cout << "Screen " << args["screen"] << " not available.\n";
+			if (fl["screen"] > xorg.screenCount() - 1) {
+				cout << "Screen " << fl["screen"] << " not available.\n";
 				continue;
 			}
 
-			if (args["brt"] != -1)
-				cfg["screens"].at(args["screen"])["brt_step"] = int(remap(args["brt"], 0, 100, 0, brt_steps_max));
-			if (args["temp"] != -1)
-				cfg["screens"].at(args["screen"])["temp_step"] = int(remap(args["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
-			xorg.setGamma(args["screen"],
-			        cfg["screens"].at(args["screen"])["brt_step"],
-			        cfg["screens"].at(args["screen"])["temp_step"]);
+			if (fl["brt"] != -1)
+				cfg["screens"][fl["screen"]]["brt_step"] = int(remap(fl["brt"], 0, 100, 0, brt_steps_max));
+			if (fl["temp"] != -1)
+				cfg["screens"][fl["screen"]]["temp_step"] = int(remap(fl["temp"], temp_k_min, temp_k_max, 0, temp_steps_max));
+
+			xorg.setGamma(fl["screen"],
+			        cfg["screens"][fl["screen"]]["brt_step"],
+			        cfg["screens"][fl["screen"]]["temp_step"]);
 		}
 
 		config::write();
@@ -113,12 +112,10 @@ int main(int argc, char **argv)
 	}
 
 	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
-	static plog::ColorConsoleAppender<plog::TxtFormatter> c;
-	plog::init(plog::Severity(plog::debug), &c);
-	const auto logger = plog::get();
-	logger->addAppender(&f);
+	plog::init(plog::Severity(plog::debug), &f);
+
 	config::read();
-	logger->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
+	plog::get()->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
 	Xorg xorg;
 	ScreenCtl screenctl(&xorg);

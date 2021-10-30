@@ -15,17 +15,17 @@ public:
 private:
     Xorg *m_server;
     std::vector<std::thread> m_threads;
-    std::vector<BrtCtl*> m_brt_controllers;
+    std::vector<BrtCtl> m_brt_controllers;
     convar gamma_refresh_cv;
     bool m_quit = false;
 
-    void stop();
     void reapplyGamma();
 };
 
 class BrtCtl
 {
 public:
+    BrtCtl(BrtCtl&&);
     BrtCtl(Xorg* server, int scr_idx);
     ~BrtCtl();
 private:
