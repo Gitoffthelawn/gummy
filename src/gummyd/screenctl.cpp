@@ -8,9 +8,9 @@ ScreenCtl::ScreenCtl(Xorg *server) : m_server(server)
 	m_server->setGamma();
 	m_threads.emplace_back([this] { reapplyGamma(); });
 
-	m_brt_controllers.reserve(m_server->screenCount());
+	m_monitors.reserve(m_server->screenCount());
 	for (int i = 0; i < m_server->screenCount(); ++i)
-		m_brt_controllers.emplace_back(m_server, i);
+		m_monitors.emplace_back(m_server, i);
 }
 
 ScreenCtl::~ScreenCtl()
@@ -43,35 +43,35 @@ void ScreenCtl::reapplyGamma()
 }
 
 // This won't ever be called as the storage is static
-BrtCtl::BrtCtl(BrtCtl &&o)
+Monitor::Monitor(Monitor &&o)
     : m_server(o.m_server),
       m_scr_idx(o.m_scr_idx)
 {
     m_ss_thr.swap(o.m_ss_thr);
 }
 
-BrtCtl::BrtCtl(Xorg* server, int scr_idx)
+Monitor::Monitor(Xorg* server, int scr_idx)
     : m_server(server),
       m_scr_idx(scr_idx),
-      m_ss_thr(std::make_unique<std::thread>([this] { captureScreen(); }))
+      m_ss_thr(std::make_unique<std::thread>([this] { capture(); }))
 {
 
 }
 
-BrtCtl::~BrtCtl()
+Monitor::~Monitor()
 {
     m_quit = true;
     m_ss_cv.notify_one();
     m_ss_thr->join();
 }
 
-void BrtCtl::captureScreen()
+void Monitor::capture()
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
 
 	convar      brt_cv;
-	std::thread brt_thr([&] { adjustBrightness(brt_cv); });
+	std::thread brt_thr([&] { adjust(brt_cv); });
 	std::mutex  mtx;
 
 	int img_delta = 0;
@@ -141,12 +141,10 @@ void BrtCtl::captureScreen()
 	brt_thr.join();
 }
 
-void BrtCtl::adjustBrightness(convar &brt_cv)
+void Monitor::adjust(convar &brt_cv)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
-
-	LOGV << "adjustBrightness " << m_scr_idx;
 
 	while (true) {
 		int img_br;

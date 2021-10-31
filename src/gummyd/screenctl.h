@@ -5,7 +5,7 @@
 #include <thread>
 #include "../commons/defs.h"
 
-class BrtCtl;
+class Monitor;
 
 class ScreenCtl
 {
@@ -15,19 +15,19 @@ public:
 private:
     Xorg *m_server;
     std::vector<std::thread> m_threads;
-    std::vector<BrtCtl> m_brt_controllers;
+    std::vector<Monitor> m_monitors;
     convar gamma_refresh_cv;
     bool m_quit = false;
 
     void reapplyGamma();
 };
 
-class BrtCtl
+class Monitor
 {
 public:
-    BrtCtl(BrtCtl&&);
-    BrtCtl(Xorg* server, int scr_idx);
-    ~BrtCtl();
+    Monitor(Monitor&&);
+    Monitor(Xorg* server, int scr_idx);
+    ~Monitor();
 private:
     Xorg *m_server;
     const int m_scr_idx;
@@ -38,8 +38,8 @@ private:
     bool m_brt_needs_change;
     bool m_quit = false;
 
-    void captureScreen();
-    void adjustBrightness(convar&);
+    void capture();
+    void adjust(convar&);
 };
 
 #endif // SCREENCTL_H
