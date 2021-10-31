@@ -126,9 +126,9 @@ void Xorg::applyGammaRamp(Output &o, int brt_step, int temp_step)
 	uint16_t *g = &o.ramps[1 * o.ramp_sz];
 	uint16_t *b = &o.ramps[2 * o.ramp_sz];
 
-	const double r_mult = interpTemp(temp_step, 0),
-	             g_mult = interpTemp(temp_step, 1),
-	             b_mult = interpTemp(temp_step, 2);
+	const double r_mult = stepToKelvin(temp_step, 0),
+	             g_mult = stepToKelvin(temp_step, 1),
+	             b_mult = stepToKelvin(temp_step, 2);
 
 	const int    ramp_mult = (UINT16_MAX + 1) / o.ramp_sz;
 	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
@@ -141,9 +141,9 @@ void Xorg::applyGammaRamp(Output &o, int brt_step, int temp_step)
 	}
 
 	auto c = xcb_randr_set_crtc_gamma_checked(m_conn, o.crtc, o.ramp_sz, r, g, b);
-	xcb_generic_error_t *error = xcb_request_check(m_conn, c);
-	if (error) {
-		LOGE << "randr set gamma error: " << int(error->error_code);
+	xcb_generic_error_t *e = xcb_request_check(m_conn, c);
+	if (e) {
+		LOGE << "randr set gamma error: " << int(e->error_code);
 	}
 }
 
