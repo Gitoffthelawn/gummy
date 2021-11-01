@@ -75,13 +75,11 @@ void Monitor::capture()
 	std::mutex  mtx;
 
 	int img_delta = 0;
-	bool force    = false;
-
-	int
-	prev_img_br = 0,
-	prev_min    = 0,
-	prev_max    = 0,
-	prev_offset = 0;
+	bool force = false;
+	int prev_ss_brt = 0,
+	    prev_min    = 0,
+	    prev_max    = 0,
+	    prev_offset = 0;
 
 	while (true) {
 		{
@@ -101,10 +99,9 @@ void Monitor::capture()
 
 		while (cfg["screens"][m_scr_idx]["brt_auto"].get<bool>() && !m_quit) {
 
-			const int img_br = m_server->getScreenBrightness(m_scr_idx);
-			img_delta += abs(prev_img_br - img_br);
+			const int ss_brt = m_server->getScreenBrightness(m_scr_idx);
 
-			LOGV << "img_brt " << img_br;
+			img_delta += abs(prev_ss_brt - ss_brt);
 
 			if (img_delta > cfg["screens"][m_scr_idx]["brt_auto_threshold"].get<int>() || force) {
 
@@ -113,19 +110,19 @@ void Monitor::capture()
 
 				{
 					std::lock_guard lock(m_brt_mtx);
-					m_ss_brt = img_br;
+					m_ss_brt = ss_brt;
 					m_brt_needs_change = true;
 				}
 
 				brt_cv.notify_one();
 			}
 
-			if (cfg["screens"][m_scr_idx]["brt_auto_min"] != prev_min
-			        || cfg["screens"][m_scr_idx]["brt_auto_max"] != prev_max
-			        || cfg["screens"][m_scr_idx]["brt_auto_offset"] != prev_offset)
+			if (   cfg["screens"][m_scr_idx]["brt_auto_min"] != prev_min
+			    || cfg["screens"][m_scr_idx]["brt_auto_max"] != prev_max
+			    || cfg["screens"][m_scr_idx]["brt_auto_offset"] != prev_offset)
 				force = true;
 
-			prev_img_br = img_br;
+			prev_ss_brt = ss_brt;
 			prev_min    = cfg["screens"][m_scr_idx]["brt_auto_min"];
 			prev_max    = cfg["screens"][m_scr_idx]["brt_auto_max"];
 			prev_offset = cfg["screens"][m_scr_idx]["brt_auto_offset"];
@@ -150,7 +147,7 @@ void Monitor::adjust(convar &brt_cv)
 	using namespace std::chrono_literals;
 
 	while (true) {
-		int img_br;
+		int ss_brt;
 
 		{
 			std::unique_lock lock(m_brt_mtx);
@@ -163,29 +160,38 @@ void Monitor::adjust(convar &brt_cv)
 				break;
 
 			m_brt_needs_change = false;
-			img_br = m_ss_brt;
+			ss_brt = m_ss_brt;
 		}
 
-		const int cur_step = cfg["screens"][m_scr_idx]["brt_step"];
-		const int tmp = brt_steps_max
-		                - int(remap(img_br, 0, 255, 0, brt_steps_max))
-		                + int(remap(cfg["screens"][m_scr_idx]["brt_auto_offset"].get<int>(), 0, brt_steps_max, 0, cfg["screens"][m_scr_idx]["brt_auto_max"].get<int>()));
-		const int target_step = std::clamp(tmp, cfg["screens"][m_scr_idx]["brt_auto_min"].get<int>(), cfg["screens"][m_scr_idx]["brt_auto_max"].get<int>());
+		json scr = cfg["screens"][m_scr_idx];
+
+		const int cur_step = scr["brt_step"];
+		const int ss_step  = ss_brt * brt_steps_max / 255;
+
+		// Offset relative to the max brightness. Only relevant on max brightness > 100%.
+		const int offset = scr["brt_auto_offset"].get<int>() * brt_steps_max / scr["brt_auto_max"].get<int>();
+
+		const int target_step = std::clamp(
+		    brt_steps_max - ss_step + offset,
+		    scr["brt_auto_min"].get<int>(),
+		    scr["brt_auto_max"].get<int>()
+		);
 
 		if (cur_step == target_step) {
 			//LOGV << "Brt already at target for screen " << m_scr_idx << " (" << target_step << ')';
 			continue;
 		}
 
-		int perc = remap(target_step, 0, brt_steps_max, 0, 100);
-
-		LOGV << "img_brt: " << img_br << " target_brt: " << perc;
-
-		std::stringstream ss;
-		ss << "light -s sysfs/backlight/auto -S " << perc;
 		cfg["screens"][m_scr_idx]["brt_step"] = target_step;
+
+		std::ostringstream ss;
+		int perc = target_step * 100 / brt_steps_max;
+		ss << "light -s sysfs/backlight/auto -S " << perc;
+
 		system(ss.str().c_str());
+
 		sleep_for(1s);
+
 		/*double time             = 0;
 		const int FPS           = cfg["brt_auto_fps"];
 		const double slice      = 1. / FPS;
