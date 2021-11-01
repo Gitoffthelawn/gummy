@@ -14,7 +14,7 @@ Sysfs::Sysfs()
 		const auto path_str     = path.generic_string();
 		const auto max_brt_file = path_str + "/max_brightness";
 
-		auto stream = std::ifstream(max_brt_file);
+		std::ifstream stream(max_brt_file);
 		if (!stream.is_open()) {
 			LOGF << "Unable to open " << max_brt_file;
 			exit(1);
@@ -45,9 +45,9 @@ Device::Device(Device&&) { }
 
 void Device::setBrightness(int brt)
 {
-    brt = std::clamp(brt, 0, 255);
+    brt = std::clamp(brt, 0, max_brt);
     std::string out(std::to_string(brt) + '\n');
 
-    auto stream = std::ofstream(brt_file);
+    std::ofstream stream(brt_file);
     stream.write(out.c_str(), out.size());
 }

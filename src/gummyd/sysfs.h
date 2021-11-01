@@ -9,8 +9,8 @@ class Sysfs
 {
 public:
     Sysfs();
-    std::vector<Device> m_devices;
 private:
+    std::vector<Device> m_devices;
 };
 
 class Device
