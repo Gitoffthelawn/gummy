@@ -19,6 +19,7 @@
 
 #include "xorg.h"
 #include "screenctl.h"
+#include "sysfs.h"
 
 using std::cout;
 
@@ -67,6 +68,8 @@ void readMessages(Xorg &xorg)
 				fl["temp"] = std::stoi(val);
 			} else if (opt == "-s") {
 				fl["screen"] = std::stoi(val);
+			} else if (opt == "-bm") {
+				fl["bm"] = std::stoi(val);
 			}
 		}
 

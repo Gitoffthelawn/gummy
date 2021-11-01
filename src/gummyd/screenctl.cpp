@@ -5,8 +5,8 @@
 
 ScreenCtl::ScreenCtl(Xorg *server) : m_server(server)
 {
-	m_server->setGamma();
-	m_threads.emplace_back([this] { reapplyGamma(); });
+	//m_server->setGamma();
+	//m_threads.emplace_back([this] { reapplyGamma(); });
 
 	m_monitors.reserve(m_server->screenCount());
 	for (int i = 0; i < m_server->screenCount(); ++i)
@@ -104,6 +104,8 @@ void Monitor::capture()
 			const int img_br = m_server->getScreenBrightness(m_scr_idx);
 			img_delta += abs(prev_img_br - img_br);
 
+			LOGV << "img_brt " << img_br;
+
 			if (img_delta > cfg["screens"][m_scr_idx]["brt_auto_threshold"].get<int>() || force) {
 
 				img_delta = 0;
@@ -145,6 +147,7 @@ void Monitor::adjust(convar &brt_cv)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
+	using namespace std::chrono_literals;
 
 	while (true) {
 		int img_br;
@@ -174,7 +177,16 @@ void Monitor::adjust(convar &brt_cv)
 			continue;
 		}
 
-		double time             = 0;
+		int perc = remap(target_step, 0, brt_steps_max, 0, 100);
+
+		LOGV << "img_brt: " << img_br << " target_brt: " << perc;
+
+		std::stringstream ss;
+		ss << "light -s sysfs/backlight/auto -S " << perc;
+		cfg["screens"][m_scr_idx]["brt_step"] = target_step;
+		system(ss.str().c_str());
+		sleep_for(1s);
+		/*double time             = 0;
 		const int FPS           = cfg["brt_auto_fps"];
 		const double slice      = 1. / FPS;
 		const double duration_s = cfg["brt_auto_speed"].get<double>() / 1000;
@@ -189,7 +201,7 @@ void Monitor::adjust(convar &brt_cv)
 			cfg["screens"][m_scr_idx]["brt_step"] = int(std::round(easeOutExpo(time, cur_step, diff, duration_s)));
 			m_server->setGamma(m_scr_idx, cfg["screens"][m_scr_idx]["brt_step"], cfg["screens"][m_scr_idx]["temp_step"]);
 			sleep_for(milliseconds(1000 / FPS));
-		}
+		}*/
 	}
 }
 
