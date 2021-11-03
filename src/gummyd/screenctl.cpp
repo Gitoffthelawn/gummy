@@ -7,8 +7,8 @@ ScreenCtl::ScreenCtl(Xorg *server)
     : m_server(server),
       m_devices(Sysfs::getDevices())
 {
-	m_server->setGamma();
-	m_threads.emplace_back([this] { reapplyGamma(); });
+	//m_server->setGamma();
+	//m_threads.emplace_back([this] { reapplyGamma(); });
 
 	m_monitors.reserve(m_server->screenCount());
 	for (int i = 0; i < m_server->screenCount(); ++i) {
@@ -110,6 +110,8 @@ void Monitor::capture()
 
 			const int ss_brt = m_server->getScreenBrightness(m_scr_idx);
 
+			//LOGV << "scr " << m_scr_idx << ": " << ss_brt;
+
 			img_delta += abs(prev_ss_brt - ss_brt);
 
 			if (img_delta > cfg["screens"][m_scr_idx]["brt_auto_threshold"].get<int>() || force) {
@@ -191,29 +193,46 @@ void Monitor::adjust(convar &brt_cv)
 			continue;
 		}
 
-		const int x = target_step * 255 / brt_steps_max;
-
 		if (m_device) {
+			const int x = target_step * 255 / brt_steps_max;
 			m_device->setBacklight(x);
+		} else {
+
+			const int    FPS         = cfg["brt_auto_fps"];
+			const double slice       = 1. / FPS;
+			const double duration_s  = cfg["brt_auto_speed"].get<double>() / 1000;
+			const int    diff        = target_step - cur_step;
+
+			double time   = 0;
+			int prev_step = 0;
+
+			//LOGV << "scr " << m_scr_idx << " target_step: " << target_step;
+
+			while (cfg["screens"][m_scr_idx]["brt_step"].get<int>() != target_step) {
+
+				if (m_brt_needs_change || !cfg["screens"][m_scr_idx]["brt_auto"].get<bool>() || m_quit)
+					break;
+
+				time += slice;
+
+				cfg["screens"][m_scr_idx]["brt_step"] = int(std::round(
+				    easeOutExpo(time, cur_step, diff, duration_s))
+				);
+
+				// Avoid expensive syscalls
+				if (prev_step != cfg["screens"][m_scr_idx]["brt_step"]) {
+					m_server->setGamma(
+					    m_scr_idx,
+					    cfg["screens"][m_scr_idx]["brt_step"],
+					    cfg["screens"][m_scr_idx]["temp_step"]
+					);
+				}
+
+				prev_step = cfg["screens"][m_scr_idx]["brt_step"];
+
+				sleep_for(milliseconds(1000 / FPS));
+			}
 		}
-
-		//cfg["screens"][m_scr_idx]["brt_step"] = target_step;
-		/*double time             = 0;
-		const int FPS           = cfg["brt_auto_fps"];
-		const double slice      = 1. / FPS;
-		const double duration_s = cfg["brt_auto_speed"].get<double>() / 1000;
-		const int diff          = target_step - cur_step;
-
-		while (cfg["screens"][m_scr_idx]["brt_step"].get<int>() != target_step) {
-
-			if (m_brt_needs_change || !cfg["screens"][m_scr_idx]["brt_auto"].get<bool>() || m_quit)
-				break;
-
-			time += slice;
-			cfg["screens"][m_scr_idx]["brt_step"] = int(std::round(easeOutExpo(time, cur_step, diff, duration_s)));
-			m_server->setGamma(m_scr_idx, cfg["screens"][m_scr_idx]["brt_step"], cfg["screens"][m_scr_idx]["temp_step"]);
-			sleep_for(milliseconds(1000 / FPS));
-		}*/
 	}
 }
 
