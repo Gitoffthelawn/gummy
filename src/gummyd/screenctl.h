@@ -2,8 +2,10 @@
 #define SCREENCTL_H
 
 #include "xorg.h"
-#include <thread>
+#include "sysfs.h"
 #include "../commons/defs.h"
+
+#include <thread>
 
 class Monitor;
 
@@ -14,6 +16,7 @@ public:
     ~ScreenCtl();
 private:
     Xorg *m_server;
+    std::vector<Device> m_devices;
     std::vector<std::thread> m_threads;
     std::vector<Monitor> m_monitors;
     convar gamma_refresh_cv;
@@ -26,10 +29,11 @@ class Monitor
 {
 public:
     Monitor(Monitor&&);
-    Monitor(Xorg* server, int scr_idx);
+    Monitor(Xorg* server, Device *device, int scr_idx);
     ~Monitor();
 private:
     Xorg *m_server;
+    Device *m_device;
     const int m_scr_idx;
     std::unique_ptr<std::thread> m_ss_thr;
     convar m_ss_cv;

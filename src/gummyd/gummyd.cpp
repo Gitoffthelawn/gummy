@@ -120,8 +120,6 @@ int main(int argc, char **argv)
 	config::read();
 	plog::get()->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
-	Sysfs syfs;
-
 	Xorg xorg;
 	ScreenCtl screenctl(&xorg);
 

@@ -4,9 +4,11 @@
 #include <fstream>
 #include "../commons/defs.h"
 
-Sysfs::Sysfs()
+std::vector<Device> Sysfs::getDevices()
 {
 	namespace fs = std::filesystem;
+
+	std::vector<Device> devices;
 
 	for (const auto &entry : fs::directory_iterator("/sys/class/backlight")) {
 
@@ -23,13 +25,15 @@ Sysfs::Sysfs()
 		std::string max_brt;
 		stream.read(max_brt.data(), sizeof(max_brt));
 
-		m_devices.emplace_back(
+		devices.emplace_back(
 		    path.filename(),
 		    path,
 		    path_str + "/brightness",
 		    std::stoi(max_brt)
 		);
 	}
+
+	return devices;
 }
 
 Device::Device(std::string name, std::string path, std::string brt_file, int max_brt)
@@ -41,9 +45,16 @@ Device::Device(std::string name, std::string path, std::string brt_file, int max
 
 }
 
-Device::Device(Device&&) { }
+Device::Device(Device&& d)
+    : name(d.name),
+      path(d.path),
+      brt_file(d.brt_file),
+      max_brt(d.max_brt)
+{
 
-void Device::setBrightness(int brt)
+}
+
+void Device::setBacklight(int brt)
 {
     brt = std::clamp(brt, 0, max_brt);
     std::string out(std::to_string(brt) + '\n');

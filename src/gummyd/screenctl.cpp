@@ -3,14 +3,22 @@
 #include "../commons/utils.h"
 #include <mutex>
 
-ScreenCtl::ScreenCtl(Xorg *server) : m_server(server)
+ScreenCtl::ScreenCtl(Xorg *server)
+    : m_server(server),
+      m_devices(Sysfs::getDevices())
 {
-	//m_server->setGamma();
-	//m_threads.emplace_back([this] { reapplyGamma(); });
+	m_server->setGamma();
+	m_threads.emplace_back([this] { reapplyGamma(); });
 
 	m_monitors.reserve(m_server->screenCount());
-	for (int i = 0; i < m_server->screenCount(); ++i)
-		m_monitors.emplace_back(m_server, i);
+	for (int i = 0; i < m_server->screenCount(); ++i) {
+
+		Device *dev = nullptr;
+		if (m_devices.size() > size_t(i))
+			dev = &m_devices[i];
+
+		m_monitors.emplace_back(m_server, dev, i);
+	}
 }
 
 ScreenCtl::~ScreenCtl()
@@ -50,8 +58,9 @@ Monitor::Monitor(Monitor &&o)
     m_ss_thr.swap(o.m_ss_thr);
 }
 
-Monitor::Monitor(Xorg* server, int scr_idx)
+Monitor::Monitor(Xorg* server, Device* device, int scr_idx)
     : m_server(server),
+      m_device(device),
       m_scr_idx(scr_idx),
       m_ss_thr(std::make_unique<std::thread>([this] { capture(); }))
 {
@@ -182,16 +191,13 @@ void Monitor::adjust(convar &brt_cv)
 			continue;
 		}
 
-		cfg["screens"][m_scr_idx]["brt_step"] = target_step;
+		const int x = target_step * 255 / brt_steps_max;
 
-		std::ostringstream ss;
-		int perc = target_step * 100 / brt_steps_max;
-		ss << "light -s sysfs/backlight/auto -S " << perc;
+		if (m_device) {
+			m_device->setBacklight(x);
+		}
 
-		system(ss.str().c_str());
-
-		sleep_for(1s);
-
+		//cfg["screens"][m_scr_idx]["brt_step"] = target_step;
 		/*double time             = 0;
 		const int FPS           = cfg["brt_auto_fps"];
 		const double slice      = 1. / FPS;

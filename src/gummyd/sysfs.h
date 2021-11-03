@@ -8,9 +8,7 @@ class Device;
 class Sysfs
 {
 public:
-    Sysfs();
-private:
-    std::vector<Device> m_devices;
+	static std::vector<Device> getDevices();
 };
 
 class Device
@@ -18,7 +16,7 @@ class Device
 public:
 	Device(std::string, std::string, std::string, int);
 	Device(Device&&);
-	void setBrightness(int);
+	void setBacklight(int);
 private:
 	std::string name;
 	std::string path;
