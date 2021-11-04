@@ -353,7 +353,8 @@ void ScreenCtl::adjustTemperature()
 
 		std::time_t cur_datetime = std::time(nullptr);
 
-		if (cur_datetime < start_datetime && cur_datetime < end_datetime) {
+		if (cur_datetime < end_datetime && end_datetime < start_datetime) {
+			LOGV << "Start was yesterday";
 			std::tm *x = std::localtime(&end_datetime);
 			x->tm_wday--;
 			start_datetime = std::mktime(x);
@@ -367,7 +368,7 @@ void ScreenCtl::adjustTemperature()
 
 			int secs_from_start = cur_datetime - start_datetime;
 
-			LOGV << "mins_from_start: " << secs_from_start * 60 << " adapt_time_s: " << adapt_time_s;
+			LOGV << "mins_from_start: " << secs_from_start / 60 << " adapt_time_s: " << adapt_time_s;
 
 			if (secs_from_start > adapt_time_s)
 				secs_from_start = adapt_time_s;
@@ -405,6 +406,9 @@ void ScreenCtl::adjustTemperature()
 		double time = 0;
 
 		int prev_step = 0;
+
+		LOGV << "Adjusting temperature";
+
 		while (cfg["temp_auto_step"].get<int>() != target_step) {
 
 			if (m_force_temp_change || !cfg["temp_auto"].get<bool>() || m_quit)
@@ -416,7 +420,7 @@ void ScreenCtl::adjustTemperature()
 
 			cfg["temp_auto_step"] = step;
 
-			LOGV << "step: " << step << " / " << target_step;
+			//LOGV << "step: " << step << " / " << target_step;
 
 			for (size_t i = 0; i < m_monitors.size(); ++i) {
 				if (cfg["screens"][i]["temp_auto"].get<bool>())
