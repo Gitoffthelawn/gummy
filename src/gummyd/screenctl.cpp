@@ -253,45 +253,37 @@ void ScreenCtl::adjustTemperature()
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	LOGV << "adjustTemperature()";
-
 	std::time_t start_datetime;
 	std::time_t end_datetime;
 
-	const auto setTime = [] (std::time_t &t, const std::string &time_str, bool end_time = false) {
+	const auto updateInterval = [&start_datetime, &end_datetime] {
 
 		// Get current timestamp
-		std::time_t cur_ts     = std::time(nullptr);
+		std::time_t cur_ts = std::time(nullptr);
+
 		// Get tm struct from it
-		std::tm *cur_date_time = std::localtime(&cur_ts);
+		std::tm *curtime = std::localtime(&cur_ts);
+		curtime->tm_sec  = 0;
 
-		// Set hour and min
-		cur_date_time->tm_hour = std::stoi(time_str.substr(0, 2));
-		cur_date_time->tm_min  = std::stoi(time_str.substr(3, 2));
-		cur_date_time->tm_sec = 0;
-
-		if (end_time) {
-			cur_date_time->tm_mday++;
-		}
-
-		// Get timestamp of modified struct
-		t = std::mktime(cur_date_time);
-	};
-
-	const auto updateInterval = [&] {
-
+		// Set hour and min for start
 		std::string t_start(cfg["temp_auto_sunset"]);
+		curtime->tm_hour = std::stoi(t_start.substr(0, 2));
+		curtime->tm_min  = std::stoi(t_start.substr(3, 2));
 
-		// @TODO subtract adaptation time from sunset time
-		/*const int h = std::stoi(t_start.substr(0, 2));
-		const int m = std::stoi(t_start.substr(3, 2));
-		const int adapt_time_s = cfg["temp_auto_speed"].get<double>() * 60;
-		std::tm adapted_start;
-		adapted_start.tm_hour = h;
-		adapted_start.tm_sec  = m;*/
+		// Subtract adaptation time from sunset time
+		curtime->tm_sec -= int(cfg["temp_auto_speed"].get<double>() * 60);
 
-		setTime(start_datetime, t_start);
-		setTime(end_datetime, cfg["temp_auto_sunrise"], true);
+		start_datetime = std::mktime(curtime);
+
+		// Set hour and min for end
+		std::string t_end(cfg["temp_auto_sunrise"]);
+		curtime->tm_hour = std::stoi(t_end.substr(0, 2));
+		curtime->tm_min  = std::stoi(t_end.substr(3, 2));
+
+		// Assume end time is tomorrow
+		curtime->tm_mday++;
+
+		end_datetime = std::mktime(curtime);
 	};
 
 	updateInterval();
@@ -302,7 +294,7 @@ void ScreenCtl::adjustTemperature()
 	std::mutex clock_mtx;
 	std::mutex temp_mtx;
 
-	std::thread clock ([&] {
+	std::thread clock([&] {
 		while (true) {
 			{
 				std::unique_lock lk(clock_mtx);
@@ -368,14 +360,14 @@ void ScreenCtl::adjustTemperature()
 		}
 
 		LOGV << "cur: " << std::asctime(std::localtime(&cur_datetime));
-		LOGV << "start: " << std::asctime(std::localtime(&start_datetime));
+		LOGV << "start: " << std::asctime(std::localtime(&start_datetime)) << ", adaptation m: " << adapt_time_s / 60;
 		LOGV << "end: " << std::asctime(std::localtime(&end_datetime));
 
 		if (cur_datetime >= start_datetime && cur_datetime < end_datetime) {
 
 			int secs_from_start = cur_datetime - start_datetime;
 
-			LOGV << "secs_from_start: " << secs_from_start << " adapt_time_s: " << adapt_time_s;
+			LOGV << "mins_from_start: " << secs_from_start * 60 << " adapt_time_s: " << adapt_time_s;
 
 			if (secs_from_start > adapt_time_s)
 				secs_from_start = adapt_time_s;
