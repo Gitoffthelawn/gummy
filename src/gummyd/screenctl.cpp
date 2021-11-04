@@ -255,18 +255,25 @@ void ScreenCtl::adjustTemperature()
 
 	LOGV << "adjustTemperature()";
 
-	std::time_t start_time;
-	std::time_t end_time;
+	std::time_t start_datetime;
+	std::time_t end_datetime;
 
-	const auto setTime = [] (std::time_t &t, const std::string &time_str) {
+	const auto setTime = [] (std::time_t &t, const std::string &time_str, bool end_time = false) {
 
 		// Get current timestamp
 		std::time_t cur_ts     = std::time(nullptr);
 		// Get tm struct from it
 		std::tm *cur_date_time = std::localtime(&cur_ts);
+
 		// Set hour and min
 		cur_date_time->tm_hour = std::stoi(time_str.substr(0, 2));
 		cur_date_time->tm_min  = std::stoi(time_str.substr(3, 2));
+		cur_date_time->tm_sec = 0;
+
+		if (end_time) {
+			cur_date_time->tm_mday++;
+		}
+
 		// Get timestamp of modified struct
 		t = std::mktime(cur_date_time);
 	};
@@ -283,8 +290,8 @@ void ScreenCtl::adjustTemperature()
 		adapted_start.tm_hour = h;
 		adapted_start.tm_sec  = m;*/
 
-		setTime(start_time, t_start);
-		setTime(end_time, cfg["temp_auto_sunrise"]);
+		setTime(start_datetime, t_start);
+		setTime(end_datetime, cfg["temp_auto_sunrise"], true);
 	};
 
 	updateInterval();
@@ -354,19 +361,19 @@ void ScreenCtl::adjustTemperature()
 
 		std::time_t cur_datetime = std::time(nullptr);
 
-		LOGV << std::asctime(std::localtime(&cur_datetime));
+		if (cur_datetime < start_datetime && cur_datetime < end_datetime) {
+			std::tm *x = std::localtime(&end_datetime);
+			x->tm_wday--;
+			start_datetime = std::mktime(x);
+		}
 
-		if ((cur_datetime >= start_time) || (cur_datetime < end_time)) {
+		LOGV << "cur: " << std::asctime(std::localtime(&cur_datetime));
+		LOGV << "start: " << std::asctime(std::localtime(&start_datetime));
+		LOGV << "end: " << std::asctime(std::localtime(&end_datetime));
 
-			//QDateTime start_datetime(cur_datetime.date(), start_time);
+		if (cur_datetime >= start_datetime && cur_datetime < end_datetime) {
 
-			/* If we are earlier than both sunset and sunrise times
-			 * we need to count from yesterday. */
-			//if (cur_datetime < end_time)
-			//	start_datetime = start_datetime.addDays(-1);
-
-			//int secs_from_start = start_datetime.secsTo(cur_datetime);
-			int secs_from_start = cur_datetime - start_time;
+			int secs_from_start = cur_datetime - start_datetime;
 
 			LOGV << "secs_from_start: " << secs_from_start << " adapt_time_s: " << adapt_time_s;
 
@@ -417,7 +424,7 @@ void ScreenCtl::adjustTemperature()
 
 			cfg["temp_auto_step"] = step;
 
-			LOGV << "temp_step: " << step << " target: " << target_step;
+			LOGV << "step: " << step << " / " << target_step;
 
 			for (size_t i = 0; i < m_monitors.size(); ++i) {
 				if (cfg["screens"][i]["temp_auto"].get<bool>())
