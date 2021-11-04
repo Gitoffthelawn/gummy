@@ -19,10 +19,13 @@ private:
     std::vector<Device> m_devices;
     std::vector<std::thread> m_threads;
     std::vector<Monitor> m_monitors;
-    convar gamma_refresh_cv;
+    convar m_gamma_refresh_cv;
+    convar m_temp_cv;
     bool m_quit = false;
+    bool m_force_temp_change;
 
     void reapplyGamma();
+    void adjustTemperature();
 };
 
 class Monitor

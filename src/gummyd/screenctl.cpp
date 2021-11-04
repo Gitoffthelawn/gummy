@@ -2,6 +2,7 @@
 #include "cfg.h"
 #include "../commons/utils.h"
 #include <mutex>
+#include <ctime>
 
 ScreenCtl::ScreenCtl(Xorg *server)
     : m_server(server),
@@ -9,6 +10,8 @@ ScreenCtl::ScreenCtl(Xorg *server)
 {
 	//m_server->setGamma();
 	//m_threads.emplace_back([this] { reapplyGamma(); });
+
+	m_threads.emplace_back([this] { adjustTemperature(); });
 
 	m_monitors.reserve(m_server->screenCount());
 	for (int i = 0; i < m_server->screenCount(); ++i) {
@@ -24,7 +27,8 @@ ScreenCtl::ScreenCtl(Xorg *server)
 ScreenCtl::~ScreenCtl()
 {
 	m_quit = true;
-	gamma_refresh_cv.notify_one();
+	m_temp_cv.notify_one();
+	m_gamma_refresh_cv.notify_one();
 	for (auto &t : m_threads)
 		t.join();
 }
@@ -40,7 +44,7 @@ void ScreenCtl::reapplyGamma()
 	while (true) {
 		{
 			std::unique_lock<std::mutex> lock(mtx);
-			gamma_refresh_cv.wait_until(lock, system_clock::now() + 5s, [&] {
+			m_gamma_refresh_cv.wait_until(lock, system_clock::now() + 5s, [&] {
 				return m_quit;
 			});
 		}
@@ -236,3 +240,201 @@ void Monitor::adjust(convar &brt_cv)
 	}
 }
 
+/**
+ * The temperature is adjusted in two steps.
+ * The first one is for quickly catching up to the proper temperature when:
+ * - time is checked sometime after the start time
+ * - the system wakes up
+ * - temperature settings change
+ */
+void ScreenCtl::adjustTemperature()
+{
+	using namespace std::this_thread;
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+
+	LOGV << "adjustTemperature()";
+
+	std::time_t start_time;
+	std::time_t end_time;
+
+	const auto setTime = [] (std::time_t &t, const std::string &time_str) {
+
+		// Get current timestamp
+		std::time_t cur_ts     = std::time(nullptr);
+		// Get tm struct from it
+		std::tm *cur_date_time = std::localtime(&cur_ts);
+		// Set hour and min
+		cur_date_time->tm_hour = std::stoi(time_str.substr(0, 2));
+		cur_date_time->tm_min  = std::stoi(time_str.substr(3, 2));
+		// Get timestamp of modified struct
+		t = std::mktime(cur_date_time);
+	};
+
+	const auto updateInterval = [&] {
+
+		std::string t_start(cfg["temp_auto_sunset"]);
+
+		// @TODO subtract adaptation time from sunset time
+		/*const int h = std::stoi(t_start.substr(0, 2));
+		const int m = std::stoi(t_start.substr(3, 2));
+		const int adapt_time_s = cfg["temp_auto_speed"].get<double>() * 60;
+		std::tm adapted_start;
+		adapted_start.tm_hour = h;
+		adapted_start.tm_sec  = m;*/
+
+		setTime(start_time, t_start);
+		setTime(end_time, cfg["temp_auto_sunrise"]);
+	};
+
+	updateInterval();
+
+	bool needs_change = cfg["temp_auto"].get<bool>();
+
+	convar     clock_cv;
+	std::mutex clock_mtx;
+	std::mutex temp_mtx;
+
+	std::thread clock ([&] {
+		while (true) {
+			{
+				std::unique_lock lk(clock_mtx);
+				clock_cv.wait_until(lk, system_clock::now() + 60s, [&] {
+					return m_quit;
+				});
+			}
+
+			if (m_quit)
+				break;
+
+			if (!cfg["temp_auto"].get<bool>())
+				continue;
+
+			{
+				std::lock_guard lk(temp_mtx);
+				needs_change = true; // @TODO: Should be false if the state hasn't changed
+			}
+
+			m_temp_cv.notify_one();
+		}
+	});
+
+	bool first_step_done = false;
+
+	while (true) {
+		{
+			std::unique_lock<std::mutex> lock(temp_mtx);
+
+			m_temp_cv.wait(lock, [&] {
+				return needs_change || first_step_done || m_force_temp_change || m_quit;
+			});
+
+			if (m_quit)
+				break;
+
+			if (m_force_temp_change) {
+				updateInterval();
+				m_force_temp_change = false;
+				first_step_done = false;
+			}
+
+			needs_change = false;
+		}
+
+		if (!cfg["temp_auto"].get<bool>())
+			continue;
+
+		// Temperature target in Kelvin
+		int target_temp = cfg["temp_auto_low"];
+
+		// Seconds it takes to reach it
+		double duration_s  = 60;
+
+		const double adapt_time_s = cfg["temp_auto_speed"].get<double>() * 60;
+
+		std::time_t cur_datetime = std::time(nullptr);
+
+		LOGV << std::asctime(std::localtime(&cur_datetime));
+
+		if ((cur_datetime >= start_time) || (cur_datetime < end_time)) {
+
+			//QDateTime start_datetime(cur_datetime.date(), start_time);
+
+			/* If we are earlier than both sunset and sunrise times
+			 * we need to count from yesterday. */
+			//if (cur_datetime < end_time)
+			//	start_datetime = start_datetime.addDays(-1);
+
+			//int secs_from_start = start_datetime.secsTo(cur_datetime);
+			int secs_from_start = cur_datetime - start_time;
+
+			LOGV << "secs_from_start: " << secs_from_start << " adapt_time_s: " << adapt_time_s;
+
+			if (secs_from_start > adapt_time_s)
+				secs_from_start = adapt_time_s;
+
+			if (!first_step_done) {
+				target_temp = remap(
+				    secs_from_start,
+				    0, adapt_time_s,
+				    cfg["temp_auto_high"], cfg["temp_auto_low"]
+				);
+			} else {
+				duration_s = adapt_time_s - secs_from_start;
+				if (duration_s < 2)
+					duration_s = 2;
+			}
+		} else {
+			target_temp = cfg["temp_auto_high"];
+		}
+
+		LOGV << "Temp duration: " << duration_s / 60 << " min";
+
+		int cur_step    = cfg["temp_auto_step"];
+		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
+
+		if (cur_step == target_step) {
+			LOGV << "Temp step already at target (" << target_step << ")";
+			first_step_done = false;
+			continue;
+		}
+
+		const int FPS      = cfg["temp_auto_fps"];
+		const int diff     = target_step - cur_step;
+		const double slice = 1. / FPS;
+
+		double time = 0;
+
+		int prev_step = 0;
+		while (cfg["temp_auto_step"].get<int>() != target_step) {
+
+			if (m_force_temp_change || !cfg["temp_auto"].get<bool>() || m_quit)
+				break;
+
+			time += slice;
+
+			const int step = int(easeInOutQuad(time, cur_step, diff, duration_s));
+
+			cfg["temp_auto_step"] = step;
+
+			LOGV << "temp_step: " << step << " target: " << target_step;
+
+			for (size_t i = 0; i < m_monitors.size(); ++i) {
+				if (cfg["screens"][i]["temp_auto"].get<bool>())
+					cfg["screens"][i]["temp_step"] = step;
+			}
+
+			if (step != prev_step)
+				m_server->setGamma();
+
+			prev_step = step;
+
+			sleep_for(milliseconds(1000 / FPS));
+		}
+
+		first_step_done = true;
+	}
+
+	clock_cv.notify_one();
+	clock.join();
+}

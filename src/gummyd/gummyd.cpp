@@ -121,12 +121,14 @@ int main(int argc, char **argv)
 	plog::get()->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
 	Xorg xorg;
-	ScreenCtl screenctl(&xorg);
 
 	int new_screens = xorg.screenCount() - cfg["screens"].size();
 	if (new_screens > 0) {
 		config::addScreenEntries(cfg, new_screens);
+		config::write();
 	}
+
+	ScreenCtl screenctl(&xorg);
 
 	readMessages(xorg);
 
