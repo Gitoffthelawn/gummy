@@ -253,37 +253,39 @@ void ScreenCtl::adjustTemperature()
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	std::time_t start_datetime;
-	std::time_t end_datetime;
+	std::time_t cur_time;
+	std::time_t sunrise_time;
+	std::time_t sunset_time;
 
-	const auto updateInterval = [&start_datetime, &end_datetime] {
+	const auto updateInterval = [&cur_time, &sunrise_time, &sunset_time] {
 
 		// Get current timestamp
-		std::time_t cur_ts = std::time(nullptr);
+		cur_time = std::time(nullptr);
 
 		// Get tm struct from it
-		std::tm *curtime = std::localtime(&cur_ts);
-		curtime->tm_sec  = 0;
+		std::tm *cur_tm = std::localtime(&cur_time);
 
-		// Set hour and min for start
-		std::string t_start(cfg["temp_auto_sunset"]);
-		curtime->tm_hour = std::stoi(t_start.substr(0, 2));
-		curtime->tm_min  = std::stoi(t_start.substr(3, 2));
+		// Set hour and min for sunrise
+		std::string sr(cfg["temp_auto_sunrise"]);
+		cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
+		cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
 
-		// Subtract adaptation time from sunset time
-		curtime->tm_sec -= int(cfg["temp_auto_speed"].get<double>() * 60);
+		// Subtract adaptation time
+		cur_tm->tm_sec  = 0;
+		cur_tm->tm_sec -= int(cfg["temp_auto_speed"].get<double>() * 60);
 
-		start_datetime = std::mktime(curtime);
+		sunrise_time = std::mktime(cur_tm);
 
-		// Set hour and min for end
-		std::string t_end(cfg["temp_auto_sunrise"]);
-		curtime->tm_hour = std::stoi(t_end.substr(0, 2));
-		curtime->tm_min  = std::stoi(t_end.substr(3, 2));
+		// Set hour and min for sunset
+		std::string sn(cfg["temp_auto_sunset"]);
+		cur_tm->tm_hour = std::stoi(sn.substr(0, 2));
+		cur_tm->tm_min  = std::stoi(sn.substr(3, 2));
 
-		// Assume end time is tomorrow
-		curtime->tm_mday++;
+		// Subtract adaptation time
+		cur_tm->tm_sec  = 0;
+		cur_tm->tm_sec -= int(cfg["temp_auto_speed"].get<double>() * 60);
 
-		end_datetime = std::mktime(curtime);
+		sunset_time = std::mktime(cur_tm);
 	};
 
 	updateInterval();
@@ -318,14 +320,14 @@ void ScreenCtl::adjustTemperature()
 		}
 	});
 
-	bool first_step_done = false;
+	bool first_step = true;
 
 	while (true) {
 		{
 			std::unique_lock<std::mutex> lock(temp_mtx);
 
 			m_temp_cv.wait(lock, [&] {
-				return needs_change || first_step_done || m_force_temp_change || m_quit;
+				return needs_change || !first_step || m_force_temp_change || m_quit;
 			});
 
 			if (m_quit)
@@ -334,7 +336,7 @@ void ScreenCtl::adjustTemperature()
 			if (m_force_temp_change) {
 				updateInterval();
 				m_force_temp_change = false;
-				first_step_done = false;
+				first_step = true;
 			}
 
 			needs_change = false;
@@ -343,59 +345,75 @@ void ScreenCtl::adjustTemperature()
 		if (!cfg["temp_auto"].get<bool>())
 			continue;
 
-		// Temperature target in Kelvin
-		int target_temp = cfg["temp_auto_low"];
+		LOGD << "Starting temperature adjustment...";
 
-		// Seconds it takes to reach it
-		double duration_s  = 60;
+		const double adaptation_time_s = cfg["temp_auto_speed"].get<double>() * 60;
 
-		const double adapt_time_s = cfg["temp_auto_speed"].get<double>() * 60;
+		LOGV << "cur_time: " << std::asctime(std::localtime(&cur_time));
+		LOGV << "sunrise: " << std::asctime(std::localtime(&sunrise_time));
+		LOGV << "sunset: " << std::asctime(std::localtime(&sunset_time));
 
-		std::time_t cur_datetime = std::time(nullptr);
+		int target_temp;
+		long tmp;
 
-		if (cur_datetime < end_datetime && end_datetime < start_datetime) {
-			LOGV << "Start was yesterday";
-			std::tm *x = std::localtime(&end_datetime);
-			x->tm_wday--;
-			start_datetime = std::mktime(x);
+		cur_time = std::time(nullptr);
+
+		bool daytime = cur_time >= sunrise_time && cur_time < sunset_time;
+
+		if (daytime) {
+			LOGV << "Setting high temp";
+
+			target_temp = cfg["temp_auto_high"];
+			tmp = sunrise_time;
+		} else {
+			LOGV << "Setting low temp";
+
+			target_temp = cfg["temp_auto_low"];
+			tmp = sunset_time;
 		}
 
-		LOGV << "cur: " << std::asctime(std::localtime(&cur_datetime));
-		LOGV << "start: " << std::asctime(std::localtime(&start_datetime)) << ", adaptation m: " << adapt_time_s / 60;
-		LOGV << "end: " << std::asctime(std::localtime(&end_datetime));
+		// If we are earlier than both sunrise and sunset, count from yesterday
+		// in order to set the proper adaptation speed.
+		if (cur_time < sunrise_time && cur_time < sunset_time) {
+			std::tm *start_time_tm = std::localtime(&sunset_time);
+			start_time_tm->tm_mday--;
+			tmp = std::mktime(start_time_tm);
+		}
 
-		if (cur_datetime >= start_datetime && cur_datetime < end_datetime) {
+		int time_since_start_s = std::abs(cur_time - tmp);
 
-			int secs_from_start = cur_datetime - start_datetime;
+		if (time_since_start_s > adaptation_time_s)
+			time_since_start_s = adaptation_time_s;
 
-			LOGV << "mins_from_start: " << secs_from_start / 60 << " adapt_time_s: " << adapt_time_s;
+		// Animation time
+		double duration_s = 2;
 
-			if (secs_from_start > adapt_time_s)
-				secs_from_start = adapt_time_s;
+		if (first_step) {
 
-			if (!first_step_done) {
+			if (daytime) {
 				target_temp = remap(
-				    secs_from_start,
-				    0, adapt_time_s,
-				    cfg["temp_auto_high"], cfg["temp_auto_low"]
+				    time_since_start_s, 0, adaptation_time_s, cfg["temp_auto_low"], cfg["temp_auto_high"]
 				);
 			} else {
-				duration_s = adapt_time_s - secs_from_start;
-				if (duration_s < 2)
-					duration_s = 2;
+				target_temp = remap(
+				    time_since_start_s, 0, adaptation_time_s, cfg["temp_auto_high"], cfg["temp_auto_low"]
+				);
 			}
+			LOGV << "First step. Target temp: " << target_temp;
 		} else {
-			target_temp = cfg["temp_auto_high"];
-		}
 
-		LOGV << "Temp duration: " << duration_s / 60 << " min";
+			LOGV << "Second step.";
+			duration_s = adaptation_time_s - time_since_start_s;
+			if (duration_s < 2)
+				duration_s = 2;
+		}
 
 		int cur_step    = cfg["temp_auto_step"];
 		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
 
 		if (cur_step == target_step) {
-			LOGV << "Temp step already at target (" << target_step << ")";
-			first_step_done = false;
+			LOGV << "Temp step already at target " << target_step;
+			first_step = true;
 			continue;
 		}
 
@@ -407,7 +425,9 @@ void ScreenCtl::adjustTemperature()
 
 		int prev_step = 0;
 
-		LOGV << "Adjusting temperature";
+		LOGV << "Adjusting temperature to step: " << target_step;
+		LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
+		LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 
 		while (cfg["temp_auto_step"].get<int>() != target_step) {
 
@@ -420,22 +440,24 @@ void ScreenCtl::adjustTemperature()
 
 			cfg["temp_auto_step"] = step;
 
-			//LOGV << "step: " << step << " / " << target_step;
-
 			for (size_t i = 0; i < m_monitors.size(); ++i) {
 				if (cfg["screens"][i]["temp_auto"].get<bool>())
 					cfg["screens"][i]["temp_step"] = step;
 			}
 
-			if (step != prev_step)
+			if (step != prev_step) {
+				//LOGV << "step: " << step << " / " << target_step;
 				m_server->setGamma();
+			}
 
 			prev_step = step;
 
 			sleep_for(milliseconds(1000 / FPS));
 		}
 
-		first_step_done = true;
+		LOGV << "Temperature adjusted.";
+
+		first_step = false;
 	}
 
 	clock_cv.notify_one();
