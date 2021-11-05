@@ -353,31 +353,20 @@ void ScreenCtl::adjustTemperature()
 		LOGV << "sunrise: " << std::asctime(std::localtime(&sunrise_time));
 		LOGV << "sunset: " << std::asctime(std::localtime(&sunset_time));
 
-		int target_temp;
-		long tmp;
-
 		cur_time = std::time(nullptr);
 
 		bool daytime = cur_time >= sunrise_time && cur_time < sunset_time;
+		int target_temp;
+		long tmp;
 
 		if (daytime) {
-			LOGV << "Setting high temp";
-
+			LOGD << "It's daytime.";
 			target_temp = cfg["temp_auto_high"];
 			tmp = sunrise_time;
 		} else {
-			LOGV << "Setting low temp";
-
+			LOGD << "It's night time.";
 			target_temp = cfg["temp_auto_low"];
 			tmp = sunset_time;
-		}
-
-		// If we are earlier than both sunrise and sunset, count from yesterday
-		// in order to set the proper adaptation speed.
-		if (cur_time < sunrise_time && cur_time < sunset_time) {
-			std::tm *start_time_tm = std::localtime(&sunset_time);
-			start_time_tm->tm_mday--;
-			tmp = std::mktime(start_time_tm);
 		}
 
 		int time_since_start_s = std::abs(cur_time - tmp);
@@ -446,7 +435,6 @@ void ScreenCtl::adjustTemperature()
 			}
 
 			if (step != prev_step) {
-				//LOGV << "step: " << step << " / " << target_step;
 				m_server->setGamma();
 			}
 
@@ -455,7 +443,7 @@ void ScreenCtl::adjustTemperature()
 			sleep_for(milliseconds(1000 / FPS));
 		}
 
-		LOGV << "Temperature adjusted.";
+		LOGD << "Temperature adjusted.";
 
 		first_step = false;
 	}
