@@ -178,26 +178,25 @@ void Monitor::adjust(convar &brt_cv)
 			ss_brt = m_ss_brt;
 		}
 
-		json scr = cfg["screens"][m_scr_idx];
-
-		const int cur_step = scr["brt_step"];
+		const int cur_step = cfg["screens"][m_scr_idx]["brt_step"];
 		const int ss_step  = ss_brt * brt_steps_max / 255;
 
 		// Offset relative to the max brightness. Only relevant on max brightness > 100%.
-		const int offset = scr["brt_auto_offset"].get<int>() * brt_steps_max / scr["brt_auto_max"].get<int>();
+		const int offset = cfg["screens"][m_scr_idx]["brt_auto_offset"].get<int>() * brt_steps_max / cfg["screens"][m_scr_idx]["brt_auto_max"].get<int>();
 
 		const int target_step = std::clamp(
 		    brt_steps_max - ss_step + offset,
-		    scr["brt_auto_min"].get<int>(),
-		    scr["brt_auto_max"].get<int>()
+		    cfg["screens"][m_scr_idx]["brt_auto_min"].get<int>(),
+		    cfg["screens"][m_scr_idx]["brt_auto_max"].get<int>()
 		);
 
 		if (cur_step == target_step) {
-			//LOGV << "Brt already at target for screen " << m_scr_idx << " (" << target_step << ')';
+			LOGV << "[scr " << m_scr_idx << "] Brt already at target: " << target_step;
 			continue;
 		}
 
 		if (m_device) {
+			cfg["screens"][m_scr_idx]["brt_step"] = target_step;
 			const int x = target_step * 255 / brt_steps_max;
 			m_device->setBacklight(x);
 		} else {
@@ -208,7 +207,7 @@ void Monitor::adjust(convar &brt_cv)
 			const int    diff        = target_step - cur_step;
 
 			double time   = 0;
-			int prev_step = 0;
+			int prev_step = -1;
 
 			//LOGV << "scr " << m_scr_idx << " target_step: " << target_step;
 
@@ -219,20 +218,20 @@ void Monitor::adjust(convar &brt_cv)
 
 				time += slice;
 
-				cfg["screens"][m_scr_idx]["brt_step"] = int(std::round(
-				    easeOutExpo(time, cur_step, diff, duration_s))
+				const int step = int(std::round(
+				   easeOutExpo(time, cur_step, diff, duration_s))
 				);
+				cfg["screens"][m_scr_idx]["brt_step"] = step;
 
-				// Avoid expensive syscalls
-				if (prev_step != cfg["screens"][m_scr_idx]["brt_step"]) {
+				if (step != prev_step) {
 					m_server->setGamma(
 					    m_scr_idx,
-					    cfg["screens"][m_scr_idx]["brt_step"],
+					    step,
 					    cfg["screens"][m_scr_idx]["temp_step"]
 					);
 				}
 
-				prev_step = cfg["screens"][m_scr_idx]["brt_step"];
+				prev_step = step;
 
 				sleep_for(milliseconds(1000 / FPS));
 			}
@@ -414,11 +413,11 @@ void ScreenCtl::adjustTemperature()
 
 		int prev_step = 0;
 
-		LOGV << "Adjusting temperature to step: " << target_step;
-		LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
-		LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
+		//LOGV << "Adjusting temperature to step: " << target_step;
+		//LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
+		//LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 
-		int step = 0;
+		int step = -1;
 		while (step != target_step) {
 
 			if (m_force_temp_change || !cfg["temp_auto"].get<bool>() || m_quit)
@@ -428,12 +427,11 @@ void ScreenCtl::adjustTemperature()
 
 			step = int(easeInOutQuad(time, cur_step, diff, duration_s));
 
-			for (size_t i = 0; i < m_monitors.size(); ++i) {
-				if (cfg["screens"][i]["temp_auto"].get<bool>())
-					cfg["screens"][i]["temp_step"] = step;
-			}
-
 			if (step != prev_step) {
+				for (size_t i = 0; i < m_monitors.size(); ++i) {
+					if (cfg["screens"][i]["temp_auto"].get<bool>())
+						cfg["screens"][i]["temp_step"] = step;
+				}
 				m_server->setGamma();
 			}
 
