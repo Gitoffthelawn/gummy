@@ -24,7 +24,6 @@ json getDefault()
 	ret["temp_auto_sunset"]  = "16:00";
 	ret["temp_auto_high"]    = temp_k_min;
 	ret["temp_auto_low"]     = 3400;
-	ret["temp_auto_step"]    = 0;
 
 	ret["log_level"] = plog::warning;
 

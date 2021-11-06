@@ -118,6 +118,7 @@ int main(int argc, char **argv)
 	plog::init(plog::Severity(plog::debug), &f);
 
 	config::read();
+
 	plog::get()->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
 
 	Xorg xorg;

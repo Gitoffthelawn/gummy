@@ -360,7 +360,7 @@ void ScreenCtl::adjustTemperature()
 		long tmp;
 
 		if (daytime) {
-			LOGD << "It's daytime.";
+			LOGD << "It's day time.";
 			target_temp = cfg["temp_auto_high"];
 			tmp = sunrise_time;
 		} else {
@@ -418,16 +418,15 @@ void ScreenCtl::adjustTemperature()
 		LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
 		LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 
-		while (cfg["temp_auto_step"].get<int>() != target_step) {
+		int step = 0;
+		while (step != target_step) {
 
 			if (m_force_temp_change || !cfg["temp_auto"].get<bool>() || m_quit)
 				break;
 
 			time += slice;
 
-			const int step = int(easeInOutQuad(time, cur_step, diff, duration_s));
-
-			cfg["temp_auto_step"] = step;
+			step = int(easeInOutQuad(time, cur_step, diff, duration_s));
 
 			for (size_t i = 0; i < m_monitors.size(); ++i) {
 				if (cfg["screens"][i]["temp_auto"].get<bool>())
