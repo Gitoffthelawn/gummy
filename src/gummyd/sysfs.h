@@ -7,6 +7,8 @@
 class Device;
 class Sysfs
 {
+	Sysfs() = delete;
+	~Sysfs() = delete;
 public:
 	static std::vector<Device> getDevices();
 };
