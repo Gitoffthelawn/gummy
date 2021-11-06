@@ -209,12 +209,11 @@ void Monitor::adjust(convar &brt_cv)
 		const double animation_s = cfg["brt_auto_speed"].get<double>() / 1000;
 		const int    diff        = target_step - cur_step;
 
-		double time   = 0;
-		int prev_step = -1;
-
 		LOGV << "scr " << m_scr_idx << " target_step: " << target_step;
 
-		int step = -1;
+		double time   = 0;
+		int step      = -1;
+		int prev_step = -1;
 
 		while (step != target_step) {
 
@@ -327,6 +326,7 @@ void ScreenCtl::adjustTemperature()
 		}
 	});
 
+	int cur_step = 0;
 	bool first_step = true;
 
 	while (true) {
@@ -399,7 +399,6 @@ void ScreenCtl::adjustTemperature()
 				animation_s = 2;
 		}
 
-		int cur_step    = cfg["temp_auto_step"];
 		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
 
 		if (cur_step == target_step) {
@@ -412,15 +411,14 @@ void ScreenCtl::adjustTemperature()
 		const int diff     = target_step - cur_step;
 		const double slice = 1. / FPS;
 
-		double time = 0;
-
-		int prev_step = 0;
-
 		//LOGV << "Adjusting temperature to step: " << target_step;
 		//LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
 		//LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 
-		int step = -1;
+		double time   = 0;
+		int step      = -1;
+		int prev_step = -1;
+
 		while (step != target_step) {
 
 			if (m_force_temp_change || !cfg["temp_auto"].get<bool>() || m_quit)
@@ -450,6 +448,7 @@ void ScreenCtl::adjustTemperature()
 			sleep_for(milliseconds(1000 / FPS));
 		}
 
+		cur_step = step;
 		first_step = false;
 	}
 
