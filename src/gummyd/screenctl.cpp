@@ -161,7 +161,7 @@ void Monitor::adjust(convar &brt_cv)
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	int cur_step = brt_steps_max;
+	int cur_step = 0;
 
 	while (true) {
 		int ss_brt;
