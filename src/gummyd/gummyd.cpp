@@ -40,7 +40,7 @@ struct Options {
 	int temp_mode = -1;
 };
 
-void readMessages(Xorg &xorg)
+void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 {
 	mkfifo(fifo_name, S_IFIFO|0640);
 
@@ -61,11 +61,17 @@ void readMessages(Xorg &xorg)
 		if (opts.scr_no == -1) {
 			for (int i = 0; i < xorg.screenCount(); ++i) {
 
-				if (opts.brt_perc != -1)
-					cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
-
 				if (opts.temp_k != -1)
 					cfg["screens"][i]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+
+				if (opts.brt_mode != -1) {
+					cfg["screens"][i]["brt_auto"] = bool(opts.brt_mode);
+					screenctl.notifyMonitor(i);
+				}
+
+				if (opts.brt_perc != -1 && opts.brt_mode != 1) {
+					cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+				}
 
 				xorg.setGamma();
 			}
@@ -76,8 +82,14 @@ void readMessages(Xorg &xorg)
 				continue;
 			}
 
-			if (opts.brt_perc != -1)
+			if (opts.brt_mode != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto"] = bool(opts.brt_mode);
+				screenctl.notifyMonitor(opts.scr_no);
+			}
+
+			if (opts.brt_perc != -1 && opts.brt_mode != 1) {
 				cfg["screens"][opts.scr_no]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+			}
 
 			if (opts.temp_k != -1)
 				cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
@@ -121,7 +133,7 @@ int main(int argc, char **argv)
 
 	ScreenCtl screenctl(&xorg);
 
-	readMessages(xorg);
+	readMessages(xorg, screenctl);
 
 	cout << "gummy stopped\n";
 	return 0;

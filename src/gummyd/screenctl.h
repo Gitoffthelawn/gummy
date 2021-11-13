@@ -13,6 +13,7 @@ class ScreenCtl
 {
 public:
     ScreenCtl(Xorg *server);
+    void notifyMonitor(int scr_idx);
     ~ScreenCtl();
 private:
     Xorg *m_server;
@@ -33,6 +34,8 @@ class Monitor
 public:
     Monitor(Monitor&&);
     Monitor(Xorg* server, Device *device, int scr_idx);
+
+    void notify();
     ~Monitor();
 private:
     Xorg *m_server;

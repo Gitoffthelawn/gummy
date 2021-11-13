@@ -33,6 +33,11 @@ ScreenCtl::~ScreenCtl()
 		t.join();
 }
 
+void ScreenCtl::notifyMonitor(int scr_idx)
+{
+	m_monitors[scr_idx].notify();
+}
+
 void ScreenCtl::reapplyGamma()
 {
 	using namespace std::this_thread;
@@ -54,14 +59,6 @@ void ScreenCtl::reapplyGamma()
 	}
 }
 
-// This won't ever be called as the storage is static
-Monitor::Monitor(Monitor &&o)
-    : m_server(o.m_server),
-      m_scr_idx(o.m_scr_idx)
-{
-    m_ss_thr.swap(o.m_ss_thr);
-}
-
 Monitor::Monitor(Xorg* server, Device* device, int scr_idx)
     : m_server(server),
       m_device(device),
@@ -71,11 +68,24 @@ Monitor::Monitor(Xorg* server, Device* device, int scr_idx)
 
 }
 
+// This won't ever be called as the storage is static
+Monitor::Monitor(Monitor &&o)
+    : m_server(o.m_server),
+      m_scr_idx(o.m_scr_idx)
+{
+    m_ss_thr.swap(o.m_ss_thr);
+}
+
 Monitor::~Monitor()
 {
     m_quit = true;
     m_ss_cv.notify_one();
     m_ss_thr->join();
+}
+
+void Monitor::notify()
+{
+	m_ss_cv.notify_one();
 }
 
 void Monitor::capture()
