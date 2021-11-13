@@ -171,7 +171,11 @@ void Monitor::adjust(convar &brt_cv)
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	int cur_step = 0;
+	int cur_step = brt_steps_max;
+
+	if (!m_device) {
+		m_server->setGamma(m_scr_idx, cur_step, cfg["screens"][m_scr_idx]["temp_step"]);
+	}
 
 	while (true) {
 		int ss_brt;
