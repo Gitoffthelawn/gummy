@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <CLI11.hpp>
+#include <json.hpp>
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
@@ -74,14 +75,18 @@ int main(int argc, char **argv)
 		std::exit(1);
 	}
 
-	std::ostringstream ss;
-	for (int i = 1; i < argc; ++i)
-		ss << argv[i] << ' ';
-	std::string s(ss.str());
+	nlohmann::json msg {
+		{"scr_no", scr_no},
+		{"brt_mode", bm},
+		{"temp_mode", tm},
+		{"brt_perc", brt},
+		{"temp_k", temp}
+	};
 
-	int fd = open(fifo_name, O_CREAT|O_WRONLY, 0600);
-	write(fd, s.c_str(), s.size() - 1);
+	std::string s(msg.dump());
+
+	int fd = open(fifo_name, O_CREAT | O_WRONLY, 0600);
+	write(fd, s.c_str(), s.size());
 	close(fd);
-
 	return 0;
 }
