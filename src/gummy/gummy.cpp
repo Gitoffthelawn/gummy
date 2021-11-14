@@ -56,14 +56,23 @@ int main(int argc, char **argv)
 	int scr_no = -1;
 	app.add_option("-s,--screen", scr_no, "Screen on which to act. If omitted, any changes will be applied on all screens.")->check(CLI::Range(0, 99));
 
-	bool bm = false;
-	app.add_option("-B,--brightness-mode", bm, "Brightness mode. 0 for manual, 1 for automatic.");
+	int bm = -1;
+	app.add_option("-B,--brightness-mode", bm, "Brightness mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
 
-	bool tm = false;
-	app.add_option("-T,--temperature-mode", tm, "Temperature mode. 0 for manual, 1 for automatic.");
+	int brt_auto_min = -1;
+	app.add_option("-N,--brightness-auto-min", brt_auto_min, "Set minimum automatic brightness.")->check(CLI::Range(5, 100));
+
+	int brt_auto_max = -1;
+	app.add_option("-M,--brightness-auto-max", brt_auto_max, "Set maximum automatic brightness.")->check(CLI::Range(5, 100));
+
+	int brt_auto_offset = -1;
+	app.add_option("-L,--brightness-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(0, 100));
+
+	int tm = -1;
+	app.add_option("-T,--temperature-mode", tm, "Temperature mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
 
 	int brt = -1;
-	app.add_option("-b,--brightness", brt, "Set screen brightness percentage.")->check(CLI::Range(0, 100));
+	app.add_option("-b,--brightness", brt, "Set screen brightness percentage.")->check(CLI::Range(5, 100));
 
 	int temp = -1;
 	app.add_option("-t,--temperature", temp, "Set screen temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min));
@@ -77,7 +86,12 @@ int main(int argc, char **argv)
 
 	nlohmann::json msg {
 		{"scr_no", scr_no},
+
 		{"brt_mode", bm},
+		{"brt_auto_min", brt_auto_min},
+		{"brt_auto_max", brt_auto_max},
+		{"brt_auto_offset", brt_auto_offset},
+
 		{"temp_mode", tm},
 		{"brt_perc", brt},
 		{"temp_k", temp}

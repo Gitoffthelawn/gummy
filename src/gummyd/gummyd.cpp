@@ -27,16 +27,25 @@ struct Options {
 	Options(std::string in)
 	{
 		json msg = json::parse(in);
-		scr_no    = msg["scr_no"];
-		brt_perc  = msg["brt_perc"];
-		temp_k    = msg["temp_k"];
-		brt_mode  = msg["brt_mode"];
-		temp_mode = msg["temp_mode"];
+		scr_no          = msg["scr_no"];
+		brt_perc        = msg["brt_perc"];
+		temp_k          = msg["temp_k"];
+		brt_auto        = msg["brt_mode"];
+		brt_auto_min    = msg["brt_auto_min"];
+		brt_auto_max    = msg["brt_auto_max"];
+		brt_auto_offset = msg["brt_auto_offset"];
+		temp_mode       = msg["temp_mode"];
 	}
 	int scr_no    = -1;
+
 	int brt_perc  = -1;
 	int temp_k    = -1;
-	int brt_mode  = -1;
+
+	int brt_auto        = -1;
+	int brt_auto_min    = -1;
+	int brt_auto_max    = -1;
+	int brt_auto_offset = -1;
+
 	int temp_mode = -1;
 };
 
@@ -59,22 +68,35 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 		Options opts(rdbuf);
 
 		if (opts.scr_no == -1) {
+
 			for (int i = 0; i < xorg.screenCount(); ++i) {
 
 				if (opts.temp_k != -1)
 					cfg["screens"][i]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
 
-				if (opts.brt_mode != -1) {
-					cfg["screens"][i]["brt_auto"] = bool(opts.brt_mode);
+				if (opts.brt_auto != -1) {
+					cfg["screens"][i]["brt_auto"] = bool(opts.brt_auto);
 					screenctl.notifyMonitor(i);
 				}
 
-				if (opts.brt_perc != -1 && opts.brt_mode != 1) {
+				if (opts.brt_perc != -1 && opts.brt_auto != 1) {
 					cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 				}
 
-				xorg.setGamma();
+				if (opts.brt_auto_min != -1) {
+					cfg["screens"][i]["brt_auto_min"] = int(remap(opts.brt_auto_min, 0, 100, 0, brt_steps_max));
+				}
+
+				if (opts.brt_auto_max != -1) {
+					cfg["screens"][i]["brt_auto_max"] = int(remap(opts.brt_auto_max, 0, 100, 0, brt_steps_max));
+				}
+
+				if (opts.brt_auto_offset != -1) {
+					cfg["screens"][i]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
+				}
 			}
+
+			xorg.setGamma();
 		} else {
 
 			if (opts.scr_no > xorg.screenCount() - 1) {
@@ -82,17 +104,30 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 				continue;
 			}
 
-			if (opts.brt_mode != -1) {
-				cfg["screens"][opts.scr_no]["brt_auto"] = bool(opts.brt_mode);
+			if (opts.brt_auto != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto"] = bool(opts.brt_auto);
 				screenctl.notifyMonitor(opts.scr_no);
 			}
 
-			if (opts.brt_perc != -1 && opts.brt_mode != 1) {
+			if (opts.brt_auto_min != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto_min"] = int(remap(opts.brt_auto_min, 0, 100, 0, brt_steps_max));
+			}
+
+			if (opts.brt_auto_max != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto_max"] = int(remap(opts.brt_auto_max, 0, 100, 0, brt_steps_max));
+			}
+
+			if (opts.brt_auto_offset != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
+			}
+
+			if (opts.brt_perc != -1 && opts.brt_auto != 1) {
 				cfg["screens"][opts.scr_no]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 			}
 
-			if (opts.temp_k != -1)
+			if (opts.temp_k != -1) {
 				cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+			}
 
 			xorg.setGamma(
 			    opts.scr_no,
