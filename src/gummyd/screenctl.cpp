@@ -8,9 +8,6 @@ ScreenCtl::ScreenCtl(Xorg *server)
     : m_server(server),
       m_devices(Sysfs::getDevices())
 {
-	//m_server->setGamma();
-	//m_threads.emplace_back([this] { reapplyGamma(); });
-
 	m_threads.emplace_back([this] { adjustTemperature(); });
 
 	m_monitors.reserve(m_server->screenCount());
@@ -22,6 +19,17 @@ ScreenCtl::ScreenCtl(Xorg *server)
 
 		m_monitors.emplace_back(m_server, dev, i);
 	}
+
+	if (cfg["temp_auto"].get<bool>()) {
+		for (size_t i = 0; i < m_monitors.size(); ++i) {
+			if (cfg["screens"][i]["temp_auto"].get<bool>()) {
+				cfg["screens"][i]["temp_step"] = 0;
+			}
+		}
+	}
+
+	m_server->setGamma();
+	//m_threads.emplace_back([this] { reapplyGamma(); });
 }
 
 ScreenCtl::~ScreenCtl()
