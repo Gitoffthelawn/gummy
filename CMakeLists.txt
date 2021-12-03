@@ -15,9 +15,13 @@ file(GLOB SOURCES src/gummyd/*.cpp)
 add_executable(${DAEMON_TARGET} ${SOURCES} ${COMMONS})
 
 find_library(XCB_LIB "xcb" REQUIRED)
-find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
 target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_LIB}")
+
+find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
 target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_RANDR_LIB}")
+
+find_package(sdbus-c++ REQUIRED)
+target_link_libraries(${DAEMON_TARGET} PRIVATE SDBusCpp::sdbus-c++)
 
 find_package(X11 REQUIRED)
 target_link_libraries(${DAEMON_TARGET} PRIVATE ${X11_LIBRARIES})

@@ -6,6 +6,7 @@
 #include "../commons/defs.h"
 
 #include <thread>
+#include <sdbus-c++/sdbus-c++.h>
 
 class Monitor;
 
@@ -27,6 +28,9 @@ private:
 
     void reapplyGamma();
     void adjustTemperature();
+
+    std::unique_ptr<sdbus::IProxy> m_dbus_proxy;
+    bool listenWakeupSignal();
 };
 
 class Monitor

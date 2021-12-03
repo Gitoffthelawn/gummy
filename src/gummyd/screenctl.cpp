@@ -3,11 +3,13 @@
 #include "../commons/utils.h"
 #include <mutex>
 #include <ctime>
+#include <sdbus-c++/sdbus-c++.h>
 
 ScreenCtl::ScreenCtl(Xorg *server)
     : m_server(server),
       m_devices(Sysfs::getDevices())
 {
+	listenWakeupSignal();
 	m_threads.emplace_back([this] { adjustTemperature(); });
 
 	m_monitors.reserve(m_server->screenCount());
@@ -31,6 +33,36 @@ ScreenCtl::ScreenCtl(Xorg *server)
 	m_server->setGamma();
 	//m_threads.emplace_back([this] { reapplyGamma(); });
 }
+
+bool ScreenCtl::listenWakeupSignal()
+{
+	const std::string service("org.freedesktop.login1");
+	const std::string obj_path("/org/freedesktop/login1");
+	const std::string interface("org.freedesktop.login1.Manager");
+	const std::string signal("PrepareForSleep");
+
+	m_dbus_proxy = sdbus::createProxy(service, obj_path);
+
+	m_dbus_proxy->registerSignalHandler(interface, signal, [this] (sdbus::Signal &sig) {
+
+		bool going_to_sleep;
+		sig >> going_to_sleep;
+
+		if (going_to_sleep)
+			return;
+
+		LOGD << "System wakeup. Forcing temp change";
+		m_force_temp_change = true;
+		m_temp_cv.notify_one();
+	});
+
+	m_dbus_proxy->finishRegistration();
+
+	LOGD << "Registered wakeup signal";
+
+	return true;
+}
+
 
 ScreenCtl::~ScreenCtl()
 {
