@@ -31,3 +31,5 @@ target_link_libraries(${DAEMON_TARGET} PRIVATE Threads::Threads)
 
 file(GLOB CLI_SOURCES src/gummy/*.cpp)
 add_executable(${PROJECT_NAME} ${CLI_SOURCES} ${COMMONS})
+
+install(FILES 90-backlight.rules DESTINATION /usr/lib/udev/rules.d)
