@@ -134,7 +134,7 @@ void Monitor::capture()
 	using namespace std::chrono;
 
 	convar      brt_cv;
-	std::thread brt_thr([&] { adjust(brt_cv); });
+	std::thread brt_thr([&] { adjustBrightness(brt_cv); });
 	std::mutex  mtx;
 
 	int img_delta = 0;
@@ -205,7 +205,7 @@ void Monitor::capture()
 	brt_thr.join();
 }
 
-void Monitor::adjust(convar &brt_cv)
+void Monitor::adjustBrightness(convar &brt_cv)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
@@ -373,7 +373,7 @@ void ScreenCtl::adjustTemperature()
 
 			{
 				std::lock_guard lk(temp_mtx);
-				needs_change = true; // @TODO: Should be false if the state hasn't changed
+				needs_change = true;
 			}
 
 			m_temp_cv.notify_one();
@@ -419,11 +419,9 @@ void ScreenCtl::adjustTemperature()
 		long tmp;
 
 		if (daytime) {
-			LOGD << "It's day time.";
 			target_temp = cfg["temp_auto_high"];
 			tmp = sunrise_time;
 		} else {
-			LOGD << "It's night time.";
 			target_temp = cfg["temp_auto_low"];
 			tmp = sunset_time;
 		}

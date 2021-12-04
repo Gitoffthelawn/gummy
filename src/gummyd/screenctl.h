@@ -53,7 +53,7 @@ private:
     bool m_quit = false;
 
     void capture();
-    void adjust(convar&);
+    void adjustBrightness(convar&);
 };
 
 #endif // SCREENCTL_H
