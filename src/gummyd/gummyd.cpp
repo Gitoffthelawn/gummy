@@ -35,6 +35,8 @@ struct Options {
 		brt_auto_max    = msg["brt_auto_max"];
 		brt_auto_offset = msg["brt_auto_offset"];
 		temp_auto       = msg["temp_mode"];
+		sunrise_time    = msg["sunrise_time"];
+		sunset_time     = msg["sunset_time"];
 	}
 	int scr_no    = -1;
 
@@ -47,6 +49,8 @@ struct Options {
 	int brt_auto_offset = -1;
 
 	int temp_auto = -1;
+	std::string sunrise_time;
+	std::string sunset_time;
 };
 
 void readMessages(Xorg &xorg, ScreenCtl &screenctl)
@@ -66,6 +70,16 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 		}
 
 		Options opts(rdbuf);
+
+		if (!opts.sunrise_time.empty()) {
+			cfg["temp_auto_sunrise"] = opts.sunrise_time;
+			screenctl.notifyTemp();
+		}
+
+		if (!opts.sunset_time.empty()) {
+			cfg["temp_auto_sunset"] = opts.sunset_time;
+			screenctl.notifyTemp();
+		}
 
 		if (opts.scr_no == -1) {
 
@@ -121,13 +135,12 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 			if (opts.temp_k != -1) {
 				cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
 				cfg["screens"][opts.scr_no]["temp_auto"] = false;
-				// this will also force other screens that have reached the target temp
-				// to restart the temp adjust animation due to the way things work right now
-				screenctl.notifyTemp();
 			} else if (opts.temp_auto != -1) {
 				cfg["screens"][opts.scr_no]["temp_auto"] = bool(opts.temp_auto);
-				// same here
-				screenctl.notifyTemp();
+
+				if (opts.temp_auto == 1) {
+					cfg["screens"][opts.scr_no]["temp_step"] = screenctl.getAutoTempStep();
+				}
 			}
 
 			if (opts.brt_auto_min != -1) {

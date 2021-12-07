@@ -16,6 +16,7 @@ public:
     ScreenCtl(Xorg *server);
     void notifyTemp();
     void notifyMonitor(int scr_idx);
+    int getAutoTempStep();
     ~ScreenCtl();
 private:
     Xorg *m_server;
@@ -24,6 +25,7 @@ private:
     std::vector<Monitor> m_monitors;
     convar m_gamma_refresh_cv;
     convar m_temp_cv;
+    int m_auto_temp_step;
     bool m_quit = false;
     bool m_force_temp_change;
 

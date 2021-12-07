@@ -81,6 +81,14 @@ int main(int argc, char **argv)
 	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled."
 	)->check(CLI::Range(temp_k_max, temp_k_min));
 
+	std::string sunrise_time;
+	app.add_option("-y,--sunrise-time", sunrise_time,
+	               "Set sunrise time in 24h format, for example `06:00`.");
+
+	std::string sunset_time;
+	app.add_option("-u,--sunset-time", sunset_time,
+	               "Set sunset time in 24h format, for example `16:30`.");
+
 	CLI11_PARSE(app, argc, argv);
 
 	if (!running) {
@@ -98,7 +106,9 @@ int main(int argc, char **argv)
 
 		{"temp_mode", tm},
 		{"brt_perc", brt},
-		{"temp_k", temp}
+		{"temp_k", temp},
+		{"sunrise_time", sunrise_time},
+		{"sunset_time", sunset_time},
 	};
 
 	std::string s(msg.dump());
