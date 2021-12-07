@@ -34,7 +34,7 @@ struct Options {
 		brt_auto_min    = msg["brt_auto_min"];
 		brt_auto_max    = msg["brt_auto_max"];
 		brt_auto_offset = msg["brt_auto_offset"];
-		temp_mode       = msg["temp_mode"];
+		temp_auto       = msg["temp_mode"];
 	}
 	int scr_no    = -1;
 
@@ -46,7 +46,7 @@ struct Options {
 	int brt_auto_max    = -1;
 	int brt_auto_offset = -1;
 
-	int temp_mode = -1;
+	int temp_auto = -1;
 };
 
 void readMessages(Xorg &xorg, ScreenCtl &screenctl)
@@ -69,10 +69,19 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 
 		if (opts.scr_no == -1) {
 
+			if (opts.temp_k != -1) {
+				cfg["temp_auto"] = false;
+				screenctl.notifyTemp();
+			} else if (opts.temp_auto != -1) {
+				cfg["temp_auto"] = bool(opts.temp_auto);
+				screenctl.notifyTemp();
+			}
+
 			for (int i = 0; i < xorg.screenCount(); ++i) {
 
-				if (opts.temp_k != -1)
+				if (opts.temp_k != -1) {
 					cfg["screens"][i]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+				}
 
 				if (opts.brt_auto != -1) {
 					cfg["screens"][i]["brt_auto"] = bool(opts.brt_auto);
@@ -107,6 +116,18 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 			if (opts.brt_auto != -1) {
 				cfg["screens"][opts.scr_no]["brt_auto"] = bool(opts.brt_auto);
 				screenctl.notifyMonitor(opts.scr_no);
+			}
+
+			if (opts.temp_k != -1) {
+				cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+				cfg["screens"][opts.scr_no]["temp_auto"] = false;
+				// this will also force other screens that have reached the target temp
+				// to restart the temp adjust animation due to the way things work right now
+				screenctl.notifyTemp();
+			} else if (opts.temp_auto != -1) {
+				cfg["screens"][opts.scr_no]["temp_auto"] = bool(opts.temp_auto);
+				// same here
+				screenctl.notifyTemp();
 			}
 
 			if (opts.brt_auto_min != -1) {

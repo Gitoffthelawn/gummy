@@ -93,7 +93,6 @@ void config::read()
 void config::write()
 {
 	const auto path = config::getPath();
-	LOGV << "Writing to: " << path;
 
 	std::ofstream file(path, std::ofstream::out);
 
@@ -108,8 +107,6 @@ void config::write()
 		LOGE << e.what() << " id: " << e.id;
 		return;
 	}
-
-	LOGV << "Config set";
 }
 
 std::string config::getPath()

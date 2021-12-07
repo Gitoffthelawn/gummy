@@ -69,13 +69,17 @@ int main(int argc, char **argv)
 	app.add_option("-L,--brightness-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(0, 100));
 
 	int tm = -1;
-	app.add_option("-T,--temperature-mode", tm, "Temperature mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
+	app.add_option("-T,--temperature-mode", tm,
+	               "Temperature mode. 0 for manual, 1 for automatic.")
+	->check(CLI::Range(0, 1));
 
 	int brt = -1;
 	app.add_option("-b,--brightness", brt, "Set screen brightness percentage.")->check(CLI::Range(5, 100));
 
 	int temp = -1;
-	app.add_option("-t,--temperature", temp, "Set screen temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min));
+	app.add_option("-t,--temperature", temp,
+	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled."
+	)->check(CLI::Range(temp_k_max, temp_k_min));
 
 	CLI11_PARSE(app, argc, argv);
 

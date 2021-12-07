@@ -73,6 +73,12 @@ ScreenCtl::~ScreenCtl()
 		t.join();
 }
 
+void ScreenCtl::notifyTemp()
+{
+	m_force_temp_change = true;
+	m_temp_cv.notify_one();
+}
+
 void ScreenCtl::notifyMonitor(int scr_idx)
 {
 	m_monitors[scr_idx].notify();
@@ -395,6 +401,7 @@ void ScreenCtl::adjustTemperature()
 				break;
 
 			if (m_force_temp_change) {
+				cur_step = 0;
 				updateInterval();
 				m_force_temp_change = false;
 				first_step = true;
@@ -454,7 +461,7 @@ void ScreenCtl::adjustTemperature()
 		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
 
 		if (cur_step == target_step) {
-			//LOGV << "Temp step already at target " << target_step;
+			LOGV << "Temp step already at target " << target_step;
 			first_step = true;
 			continue;
 		}
@@ -463,7 +470,7 @@ void ScreenCtl::adjustTemperature()
 		const int diff     = target_step - cur_step;
 		const double slice = 1. / FPS;
 
-		//LOGV << "Adjusting temperature to step: " << target_step;
+		LOGV << "Adjusting temp: " << cur_step << " -> " << target_step;
 		//LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
 		//LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 

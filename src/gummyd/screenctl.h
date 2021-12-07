@@ -14,6 +14,7 @@ class ScreenCtl
 {
 public:
     ScreenCtl(Xorg *server);
+    void notifyTemp();
     void notifyMonitor(int scr_idx);
     ~ScreenCtl();
 private:
