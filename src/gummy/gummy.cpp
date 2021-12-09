@@ -107,6 +107,10 @@ int main(int argc, char **argv)
 	               "Set sunset time in 24h format, for example `16:30`.")
 	->check(time_format_callback);
 
+	int adapt_time = -1;
+	app.add_option("-i,--temp-adaptation-time", adapt_time,
+	               "Temperature adaptation time in minutes.\nFor example, if this option is set to 30 min. and the sunset time is at 16:30,\ntemperature starts adjusting at 16:00, going down gradually until 16:30.");
+
 	CLI11_PARSE(app, argc, argv);
 
 	if (!running) {
@@ -116,17 +120,16 @@ int main(int argc, char **argv)
 
 	nlohmann::json msg {
 		{"scr_no", scr_no},
-
 		{"brt_mode", bm},
 		{"brt_auto_min", brt_auto_min},
 		{"brt_auto_max", brt_auto_max},
 		{"brt_auto_offset", brt_auto_offset},
-
 		{"temp_mode", tm},
 		{"brt_perc", brt},
 		{"temp_k", temp},
 		{"sunrise_time", sunrise_time},
 		{"sunset_time", sunset_time},
+		{"temp_adaptation_time", adapt_time}
 	};
 
 	std::string s(msg.dump());

@@ -37,18 +37,17 @@ struct Options {
 		temp_auto       = msg["temp_mode"];
 		sunrise_time    = msg["sunrise_time"];
 		sunset_time     = msg["sunset_time"];
+		temp_adaptation_time = msg["temp_adaptation_time"];
 	}
-	int scr_no    = -1;
-
-	int brt_perc  = -1;
-	int temp_k    = -1;
-
+	int scr_no          = -1;
+	int brt_perc        = -1;
+	int temp_k          = -1;
 	int brt_auto        = -1;
 	int brt_auto_min    = -1;
 	int brt_auto_max    = -1;
 	int brt_auto_offset = -1;
-
-	int temp_auto = -1;
+	int temp_auto       = -1;
+	int temp_adaptation_time = -1;
 	std::string sunrise_time;
 	std::string sunset_time;
 };
@@ -78,6 +77,11 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 
 		if (!opts.sunset_time.empty()) {
 			cfg["temp_auto_sunset"] = opts.sunset_time;
+			screenctl.notifyTemp();
+		}
+
+		if (opts.temp_adaptation_time != -1) {
+			cfg["temp_auto_speed"] = opts.temp_adaptation_time;
 			screenctl.notifyTemp();
 		}
 
