@@ -6,6 +6,7 @@
 #include <sstream>
 #include <CLI11.hpp>
 #include <json.hpp>
+#include <regex>
 #include "../commons/defs.h"
 #include "../commons/utils.h"
 
@@ -81,13 +82,30 @@ int main(int argc, char **argv)
 	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled."
 	)->check(CLI::Range(temp_k_max, temp_k_min));
 
+	auto time_format_callback = [] (const std::string &s) {
+
+		std::regex pattern("^\\d{2}:\\d{2}$");
+		std::string err("option should match the 24h format.");
+
+		if (!std::regex_search(s, pattern))
+			return err;
+		if (std::stoi(s.substr(0, 2)) > 23)
+			return err;
+		if (std::stoi(s.substr(3, 2)) > 59)
+			return err;
+
+		return std::string("");
+	};
+
 	std::string sunrise_time;
 	app.add_option("-y,--sunrise-time", sunrise_time,
-	               "Set sunrise time in 24h format, for example `06:00`.");
+	               "Set sunrise time in 24h format, for example `06:00`.")
+	->check(time_format_callback);
 
 	std::string sunset_time;
 	app.add_option("-u,--sunset-time", sunset_time,
-	               "Set sunset time in 24h format, for example `16:30`.");
+	               "Set sunset time in 24h format, for example `16:30`.")
+	->check(time_format_callback);
 
 	CLI11_PARSE(app, argc, argv);
 
