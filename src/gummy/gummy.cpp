@@ -82,6 +82,16 @@ int main(int argc, char **argv)
 	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled."
 	)->check(CLI::Range(temp_k_max, temp_k_min));
 
+	int temp_day;
+	app.add_option("-j,--temp-day", temp_day,
+	               "Set day time temperature in kelvins.")
+	->check(CLI::Range(temp_k_max, temp_k_min));
+
+	int temp_night;
+	app.add_option("-k,--temp-night", temp_night,
+	               "Set night time temperature in kelvins.")
+	->check(CLI::Range(temp_k_max, temp_k_min));
+
 	auto time_format_callback = [] (const std::string &s) {
 
 		std::regex pattern("^\\d{2}:\\d{2}$");
@@ -127,6 +137,8 @@ int main(int argc, char **argv)
 		{"temp_mode", tm},
 		{"brt_perc", brt},
 		{"temp_k", temp},
+		{"temp_day_k", temp_day},
+		{"temp_night_k", temp_night},
 		{"sunrise_time", sunrise_time},
 		{"sunset_time", sunset_time},
 		{"temp_adaptation_time", adapt_time}
