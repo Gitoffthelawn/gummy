@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 	app.add_option("-M,--brightness-auto-max", brt_auto_max, "Set maximum automatic brightness.")->check(CLI::Range(5, 100));
 
 	int brt_auto_offset = -1;
-	app.add_option("-L,--brightness-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(0, 100));
+	app.add_option("-L,--brightness-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(-100, 100));
 
 	int tm = -1;
 	app.add_option("-T,--temperature-mode", tm,
