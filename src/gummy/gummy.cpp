@@ -82,15 +82,16 @@ int main(int argc, char **argv)
 	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled."
 	)->check(CLI::Range(temp_k_max, temp_k_min));
 
-	int temp_day;
+	int temp_day = -1;
 	app.add_option("-j,--temp-day", temp_day,
 	               "Set day time temperature in kelvins.")
 	->check(CLI::Range(temp_k_max, temp_k_min));
 
-	int temp_night;
+	int temp_night = -1;
 	app.add_option("-k,--temp-night", temp_night,
 	               "Set night time temperature in kelvins.")
 	->check(CLI::Range(temp_k_max, temp_k_min));
+
 
 	auto time_format_callback = [] (const std::string &s) {
 
