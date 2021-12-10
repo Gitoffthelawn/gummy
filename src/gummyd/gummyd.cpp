@@ -21,8 +21,6 @@
 #include "screenctl.h"
 #include "sysfs.h"
 
-using std::cout;
-
 struct Options {
 	Options(std::string in)
 	{
@@ -146,7 +144,7 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 		} else {
 
 			if (opts.scr_no > xorg.screenCount() - 1) {
-				cout << "Screen " << opts.scr_no << " not available.\n";
+				LOGE << "Screen " << opts.scr_no << " not available";
 				continue;
 			}
 
@@ -200,7 +198,7 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 int main(int argc, char **argv)
 {
 	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
-		cout << "0.1\n";
+		std::cout << app_version << '\n';
 		return 0;
 	}
 
@@ -208,7 +206,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	static plog::RollingFileAppender<plog::TxtFormatter> f("gummy.log", 1024 * 1024 * 5, 1);
+	static plog::RollingFileAppender<plog::TxtFormatter> f("gummyd.log", 1024 * 1024 * 5, 1);
 	plog::init(plog::Severity(plog::debug), &f);
 
 	config::read();
@@ -227,6 +225,5 @@ int main(int argc, char **argv)
 
 	readMessages(xorg, screenctl);
 
-	cout << "gummy stopped\n";
 	return 0;
 }

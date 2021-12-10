@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
 	app.add_subcommand("start", "Start the background process.")->callback([&] {
 		if (running) {
-			cout << "already started.\n";
+			cout << "already started\n";
 			std::exit(0);
 		}
 
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	app.add_subcommand("stop", "Stop the background process.")->callback([&] {
 
 		if (!running) {
-			cout << "already stopped.\n";
+			cout << "already stopped\n";
 			std::exit(0);
 		}
 
@@ -46,6 +46,7 @@ int main(int argc, char **argv)
 		std::string s("stop");
 		write(fd, s.c_str(), s.size());
 		close(fd);
+		cout << "gummy stopped\n";
 		std::exit(0);
 	});
 
