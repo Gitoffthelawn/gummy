@@ -27,6 +27,7 @@ Requirements:
 
 ```
 git clone https://github.com/Fushko/gummy.git
+cd gummy
 cmake .
 cmake --build .
 sudo make install
