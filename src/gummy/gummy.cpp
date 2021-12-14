@@ -28,7 +28,9 @@ int main(int argc, char **argv)
 		pid_t pid = fork();
 
 		if (pid == 0) {
-			execv("./gummyd", argv);
+			execv(DAEMON_PATH, argv);
+			cout << "failed to start gummyd\n";
+			std::exit(1);
 		}
 
 		std::exit(0);
