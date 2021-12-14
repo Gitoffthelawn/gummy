@@ -7,8 +7,8 @@
 #include <CLI11.hpp>
 #include <json.hpp>
 #include <regex>
-#include "../commons/defs.h"
-#include "../commons/utils.h"
+#include "../common/defs.h"
+#include "../common/utils.h"
 
 using std::cout;
 

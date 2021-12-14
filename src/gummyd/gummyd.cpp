@@ -13,8 +13,8 @@
 #include <plog/Init.h>
 #include <plog/Appenders/RollingFileAppender.h>
 
-#include "../commons/defs.h"
-#include "../commons/utils.h"
+#include "../common/defs.h"
+#include "../common/utils.h"
 #include "cfg.h"
 
 #include "xorg.h"

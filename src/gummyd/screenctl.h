@@ -3,10 +3,10 @@
 
 #include "xorg.h"
 #include "sysfs.h"
-#include "../commons/defs.h"
+#include "../common/defs.h"
 
 #include <thread>
-#include <sdbus-c++/sdbus-c++.h>
+#include <sdbus-c++/ProxyInterfaces.h>
 
 class Monitor;
 

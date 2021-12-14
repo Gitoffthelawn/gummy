@@ -3,8 +3,8 @@
  * License: https://github.com/Fushko/gammy#license
  */
 
-#include "../commons/utils.h"
-#include "../commons/defs.h"
+#include "../common/utils.h"
+#include "../common/defs.h"
 #include "cfg.h"
 #include <fstream>
 #include <iostream>

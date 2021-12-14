@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include "../commons/defs.h"
+#include "../common/defs.h"
 
 std::vector<Device> Sysfs::getDevices()
 {

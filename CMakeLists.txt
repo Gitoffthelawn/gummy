@@ -14,12 +14,12 @@ set(DAEMON_PATH "${CMAKE_INSTALL_PREFIX}/${BINARY_DIR}/${DAEMON_TARGET}")
 
 add_compile_definitions(DAEMON_PATH="${DAEMON_PATH}")
 
-file(GLOB COMMONS src/commons/*.cpp)
+file(GLOB COMMON src/common/*.cpp)
 file(GLOB SOURCES src/gummyd/*.cpp)
-file(GLOB CLI_SOURCES src/gummy/*.cpp)
+file(GLOB SOURCES_CLI src/gummy/*.cpp)
 
-add_executable(${DAEMON_TARGET} ${SOURCES} ${COMMONS})
-add_executable(${PROJECT_NAME} ${CLI_SOURCES} ${COMMONS})
+add_executable(${DAEMON_TARGET} ${SOURCES} ${COMMON})
+add_executable(${PROJECT_NAME} ${SOURCES_CLI} ${COMMON})
 
 find_package(X11 REQUIRED)
 find_package(Threads REQUIRED)
@@ -27,11 +27,12 @@ find_package(sdbus-c++ REQUIRED)
 find_library(XCB_LIB "xcb" REQUIRED)
 find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
 
-target_link_libraries(${DAEMON_TARGET} PRIVATE ${X11_LIBRARIES})
-target_link_libraries(${DAEMON_TARGET} PRIVATE Threads::Threads)
-target_link_libraries(${DAEMON_TARGET} PRIVATE SDBusCpp::sdbus-c++)
-target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_LIB}")
-target_link_libraries(${DAEMON_TARGET} PRIVATE "${XCB_RANDR_LIB}")
+target_link_libraries(${DAEMON_TARGET} PRIVATE
+	${X11_LIBRARIES}
+	Threads::Threads
+	SDBusCpp::sdbus-c++
+	${XCB_LIB}
+	${XCB_RANDR_LIB})
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_include_directories(${DAEMON_TARGET} PRIVATE include)

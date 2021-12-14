@@ -1,6 +1,6 @@
 ﻿#include "screenctl.h"
 #include "cfg.h"
-#include "../commons/utils.h"
+#include "../common/utils.h"
 #include <mutex>
 #include <ctime>
 #include <sdbus-c++/sdbus-c++.h>
