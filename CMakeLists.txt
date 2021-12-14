@@ -5,10 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT BINARY_DIR)
-	set(BINARY_DIR "bin")
+	set(BINARY_DIR bin)
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CACHEFILE_DIR}/${BINARY_DIR})
 
 add_subdirectory(src/gummyd)
 add_subdirectory(src/gummy)
