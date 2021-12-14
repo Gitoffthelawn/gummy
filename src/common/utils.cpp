@@ -1,10 +1,11 @@
 /**
  * Copyright (C) Francesco Fusco. All rights reserved.
- * License: https://github.com/Fushko/gammy#license
+ * License: https://github.com/Fushko/gummy#license
  */
 
 #include "utils.h"
 #include "defs.h"
+#include <fcntl.h>
 #include <cmath>
 
 int calcBrightness(uint8_t *buf, uint64_t buf_sz, int bytes_per_pixel, int stride)

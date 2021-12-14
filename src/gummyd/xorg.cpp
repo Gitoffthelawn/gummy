@@ -7,6 +7,7 @@
 #include "../common/defs.h"
 #include "../common/utils.h"
 
+#include <plog/Log.h>
 #include <iostream>
 
 Xorg::Xorg()

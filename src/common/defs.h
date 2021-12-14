@@ -1,16 +1,12 @@
 /**
  * Copyright (C) Francesco Fusco. All rights reserved.
- * License: https://github.com/Fushko/gammy#license
+ * License: https://github.com/Fushko/gummy#license
  */
 
 #ifndef DEFS_H
 #define DEFS_H
 
-#include <condition_variable>
-#include <plog/Log.h>
 #include <array>
-
-typedef std::condition_variable convar;
 
 constexpr const char* app_version = "0.1";
 constexpr const char* config_name = "gummyconf";

@@ -6,6 +6,7 @@
 #include "../common/defs.h"
 
 #include <thread>
+#include <condition_variable>
 #include <sdbus-c++/ProxyInterfaces.h>
 
 class Monitor;
@@ -23,8 +24,8 @@ private:
     std::vector<Device> m_devices;
     std::vector<std::thread> m_threads;
     std::vector<Monitor> m_monitors;
-    convar m_gamma_refresh_cv;
-    convar m_temp_cv;
+    std::condition_variable m_gamma_refresh_cv;
+    std::condition_variable m_temp_cv;
     int m_auto_temp_step;
     bool m_quit = false;
     bool m_force_temp_change;
@@ -49,14 +50,14 @@ private:
     Device *m_device;
     const int m_scr_idx;
     std::unique_ptr<std::thread> m_ss_thr;
-    convar m_ss_cv;
+    std::condition_variable m_ss_cv;
     std::mutex m_brt_mtx;
     int m_ss_brt;
     bool m_brt_needs_change;
     bool m_quit = false;
 
     void capture();
-    void adjustBrightness(convar&);
+    void adjustBrightness(std::condition_variable&);
 };
 
 #endif // SCREENCTL_H

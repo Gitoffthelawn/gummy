@@ -1,16 +1,7 @@
 #include <iostream>
-#include <unistd.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <fcntl.h>
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 
 #include <plog/Init.h>
+#include <plog/Log.h>
 #include <plog/Appenders/RollingFileAppender.h>
 
 #include "../common/defs.h"

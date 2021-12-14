@@ -1,6 +1,6 @@
 /**
  * Copyright (C) Francesco Fusco. All rights reserved.
- * License: https://github.com/Fushko/gammy#license
+ * License: https://github.com/Fushko/gummy#license
  */
 
 #ifndef CFG_H

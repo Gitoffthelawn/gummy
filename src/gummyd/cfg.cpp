@@ -3,11 +3,12 @@
  * License: https://github.com/Fushko/gammy#license
  */
 
-#include "../common/utils.h"
 #include "../common/defs.h"
+#include "../common/utils.h"
 #include "cfg.h"
 #include <fstream>
 #include <iostream>
+#include <plog/Log.h>
 
 json getDefault()
 {

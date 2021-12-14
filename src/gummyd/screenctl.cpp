@@ -3,6 +3,7 @@
 #include "../common/utils.h"
 #include <mutex>
 #include <ctime>
+#include <plog/Log.h>
 #include <sdbus-c++/sdbus-c++.h>
 
 ScreenCtl::ScreenCtl(Xorg *server)
@@ -139,7 +140,7 @@ void Monitor::capture()
 	using namespace std::this_thread;
 	using namespace std::chrono;
 
-	convar      brt_cv;
+	std::condition_variable brt_cv;
 	std::thread brt_thr([&] { adjustBrightness(brt_cv); });
 	std::mutex  mtx;
 
@@ -211,7 +212,7 @@ void Monitor::capture()
 	brt_thr.join();
 }
 
-void Monitor::adjustBrightness(convar &brt_cv)
+void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
@@ -363,7 +364,7 @@ void ScreenCtl::adjustTemperature()
 
 	bool needs_change = cfg["temp_auto"].get<bool>();
 
-	convar     clock_cv;
+	std::condition_variable clock_cv;
 	std::mutex clock_mtx;
 	std::mutex temp_mtx;
 

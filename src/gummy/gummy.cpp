@@ -1,12 +1,9 @@
 #include <iostream>
+#include <regex>
 #include <unistd.h>
 #include <fcntl.h>
-#include <cstring>
-#include <string>
-#include <sstream>
 #include <CLI11.hpp>
 #include <json.hpp>
-#include <regex>
 #include "../common/defs.h"
 #include "../common/utils.h"
 
@@ -28,7 +25,7 @@ int main(int argc, char **argv)
 		pid_t pid = fork();
 
 		if (pid == 0) {
-			execv(DAEMON_PATH, argv);
+			execv("gummmyd", argv);
 			cout << "failed to start gummyd\n";
 			std::exit(1);
 		}

@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <plog/Log.h>
 #include "../common/defs.h"
 
 std::vector<Device> Sysfs::getDevices()
