@@ -8,6 +8,8 @@ if(NOT BINARY_DIR)
 	set(BINARY_DIR "bin")
 endif()
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_DIR})
+
 add_subdirectory(src/gummyd)
 add_subdirectory(src/gummy)
 
