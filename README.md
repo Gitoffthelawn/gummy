@@ -8,7 +8,7 @@ Automatic screen brightness is based on screen contents. Possibly in the future 
 
 It also allows automatic and manual temperature.
 
-Disclaimer: this app is still in early development, you are welcome and encouraged to report bugs and provide feedback.
+Disclaimer: this app is still in early development! You are welcome and encouraged to submit bug reports, suggestions and pull requests.
 
 # Build
 
@@ -23,31 +23,44 @@ Requirements:
 
 #### Apt packages
 
-`sudo apt install libxext-dev libxcb-randr0-dev libsdbus-c++-dev`
+`sudo apt install build-essential cmake libxext-dev libxcb-randr0-dev libsdbus-c++-dev`
 
 ### Installation
 
 ```
 git clone https://github.com/Fushko/gummy.git
 cd gummy
-cmake .
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="Release"
 cmake --build .
 sudo make install
 ```
 
-The installation will put `90-backlight.rules` in `/usr/lib/udev/rules.d`.
-
-This is a udev rule that allows users in the `video` group to apply backlight adjustments without root priviliges. For this to work, you also need to add your user to the `video` group, then restart:
-
-```
-usermod -a -G video {YOUR_USERNAME}
-```
-
-If the `video` group is not present, add it:
+The installation will apply a udev rule that allows users in the `video` group to apply backlight adjustments without root priviliges. For this to work, you also need to add your user to the `video` group:
 
 ```
 sudo groupadd video
+usermod -a -G video {YOUR_USERNAME}
 ```
+Then restart for the changes to take effect.
+
+# Usage
+
+Type `gummy -h` to print the help text.
+
+Quick guide:
+
+`gummy start` starts the daemon responsible for screen adjustments.
+
+`gummy -B 1` enables auto brightness on all screens.
+
+`gummy -B 0 -s 1` disables automatic brightness on the second screen.
+
+`gummy -b 60 -s 1` sets the brightness to 60% on the second screen.
+
+`gummy -t 3400` sets the temperature to 3400K on all screens.
+
+`gummy -T 1 -y 06:00 -u 16:30` enables auto temperature on all screens, with the sunrise set to 06:00 and sunset to 16:30.
 
 # License
 
