@@ -53,6 +53,6 @@ sudo groupadd video
 
 Copyright (C) Francesco Fusco. All rights reserved.
 
-[GPL3](https://github.com/Fushko/gammy/blob/master/LICENSE)
+[GPL3](https://github.com/Fushko/gummy/blob/master/LICENSE)
 
 
