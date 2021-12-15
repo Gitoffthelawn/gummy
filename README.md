@@ -8,6 +8,8 @@ Automatic screen brightness is based on screen contents. Possibly in the future 
 
 It also allows automatic and manual temperature.
 
+Disclaimer: this app is still in early development, you are welcome and encouraged to report bugs and provide feedback.
+
 # Build
 
 Requirements:
@@ -46,3 +48,11 @@ If the `video` group is not present, add it:
 ```
 sudo groupadd video
 ```
+
+# License
+
+Copyright (C) Francesco Fusco. All rights reserved.
+
+[GPL3](https://github.com/Fushko/gammy/blob/master/LICENSE)
+
+
