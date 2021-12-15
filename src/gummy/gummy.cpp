@@ -25,7 +25,12 @@ int main(int argc, char **argv)
 		pid_t pid = fork();
 
 		if (pid == 0) {
-			execv("gummmyd", argv);
+
+			// Try starting from PATH first
+			execlp("gummyd", "", nullptr);
+
+			execl("./gummyd", "", nullptr);
+
 			cout << "failed to start gummyd\n";
 			std::exit(1);
 		}
