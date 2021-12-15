@@ -10,8 +10,6 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CACHEFILE_DIR}/${CMAKE_INSTALL_BINDIR})
-
 add_subdirectory(src/gummyd)
 add_subdirectory(src/gummy)
 
