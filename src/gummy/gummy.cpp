@@ -35,9 +35,6 @@ int main(int argc, char **argv)
 		}
 
 		execl(CMAKE_INSTALL_DAEMON_PATH, "", nullptr);
-
-		execl("./gummyd", "", nullptr);
-
 		cout << "failed to start gummyd\n";
 		std::exit(1);
 	});
