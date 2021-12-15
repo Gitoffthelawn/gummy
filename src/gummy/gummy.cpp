@@ -26,8 +26,7 @@ int main(int argc, char **argv)
 
 		if (pid == 0) {
 
-			// Try starting from PATH first
-			execlp("gummyd", "", nullptr);
+			execl(CMAKE_INSTALL_DAEMON_PATH, "", nullptr);
 
 			execl("./gummyd", "", nullptr);
 

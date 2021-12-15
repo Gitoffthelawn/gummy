@@ -197,7 +197,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	static plog::RollingFileAppender<plog::TxtFormatter> f("gummyd.log", 1024 * 1024 * 5, 1);
+	static plog::RollingFileAppender<plog::TxtFormatter> f("~/.cache/gummy/gummyd.log", 1024 * 1024 * 5, 1);
 	plog::init(plog::Severity(plog::debug), &f);
 
 	config::read();
