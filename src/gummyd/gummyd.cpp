@@ -1,16 +1,15 @@
-#include <iostream>
-
-#include <plog/Init.h>
-#include <plog/Log.h>
-#include <plog/Appenders/RollingFileAppender.h>
-
 #include "../common/defs.h"
 #include "../common/utils.h"
 #include "cfg.h"
-
 #include "xorg.h"
 #include "screenctl.h"
 #include "sysfs.h"
+
+#include <iostream>
+#include <syslog.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 struct Options {
 	Options(std::string in)
@@ -135,7 +134,7 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 		} else {
 
 			if (opts.scr_no > xorg.screenCount() - 1) {
-				LOGE << "Screen " << opts.scr_no << " not available";
+				syslog(LOG_ERR, "Screen %d not available", opts.scr_no);
 				continue;
 			}
 
@@ -197,12 +196,9 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	static plog::RollingFileAppender<plog::TxtFormatter> f("~/.cache/gummy/gummyd.log", 1024 * 1024 * 5, 1);
-	plog::init(plog::Severity(plog::debug), &f);
-
 	config::read();
 
-	plog::get()->setMaxSeverity(plog::Severity(cfg["log_level"].get<int>()));
+	openlog("gummyd", LOG_PID, LOG_DAEMON);
 
 	Xorg xorg;
 

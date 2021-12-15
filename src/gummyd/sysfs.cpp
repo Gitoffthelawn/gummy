@@ -1,9 +1,10 @@
 ﻿#include "sysfs.h"
-#include <cstdio>
+#include "../common/defs.h"
+
 #include <filesystem>
 #include <fstream>
-#include <plog/Log.h>
-#include "../common/defs.h"
+#include <algorithm>
+#include <syslog.h>
 
 std::vector<Device> Sysfs::getDevices()
 {
@@ -19,7 +20,7 @@ std::vector<Device> Sysfs::getDevices()
 
 		std::ifstream stream(max_brt_file);
 		if (!stream.is_open()) {
-			LOGF << "Unable to open " << max_brt_file;
+			syslog(LOG_ERR, "Unable to open %s", max_brt_file.c_str());
 			exit(1);
 		}
 

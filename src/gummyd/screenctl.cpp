@@ -3,7 +3,6 @@
 #include "../common/utils.h"
 #include <mutex>
 #include <ctime>
-#include <plog/Log.h>
 #include <sdbus-c++/sdbus-c++.h>
 
 ScreenCtl::ScreenCtl(Xorg *server)
@@ -52,14 +51,11 @@ bool ScreenCtl::listenWakeupSignal()
 		if (going_to_sleep)
 			return;
 
-		LOGD << "System wakeup. Forcing temp change";
 		m_force_temp_change = true;
 		m_temp_cv.notify_one();
 	});
 
 	m_dbus_proxy->finishRegistration();
-
-	LOGD << "Registered wakeup signal";
 
 	return true;
 }
@@ -171,8 +167,6 @@ void Monitor::capture()
 
 			const int ss_brt = m_server->getScreenBrightness(m_scr_idx);
 
-			//LOGV << "scr " << m_scr_idx << ": " << ss_brt;
-
 			img_delta += abs(prev_ss_brt - ss_brt);
 
 			if (img_delta > cfg["screens"][m_scr_idx]["brt_auto_threshold"].get<int>() || force) {
@@ -255,7 +249,6 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		);
 
 		if (cur_step == target_step) {
-			LOGV << "[scr " << m_scr_idx << "] Brt already at target: " << target_step;
 			continue;
 		}
 
@@ -269,8 +262,6 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		const double slice       = 1. / FPS;
 		const double animation_s = cfg["brt_auto_speed"].get<double>() / 1000;
 		const int    diff        = target_step - cur_step;
-
-		LOGV << "scr " << m_scr_idx << " target_step: " << target_step;
 
 		double time   = 0;
 		int step      = -1;
@@ -420,10 +411,6 @@ void ScreenCtl::adjustTemperature()
 
 		const double adaptation_time_s = cfg["temp_auto_speed"].get<double>() * 60;
 
-		//LOGV << "cur_time: " << std::asctime(std::localtime(&cur_time));
-		//LOGV << "sunrise: " << std::asctime(std::localtime(&sunrise_time));
-		//LOGV << "sunset: " << std::asctime(std::localtime(&sunset_time));
-
 		cur_time = std::time(nullptr);
 
 		bool daytime = cur_time >= sunrise_time && cur_time < sunset_time;
@@ -455,9 +442,7 @@ void ScreenCtl::adjustTemperature()
 				    time_since_start_s, 0, adaptation_time_s, cfg["temp_auto_high"], cfg["temp_auto_low"]
 				);
 			}
-			//LOGV << "First step. Target temp: " << target_temp;
 		} else {
-			//LOGV << "Second step.";
 			animation_s = adaptation_time_s - time_since_start_s;
 			if (animation_s < 2)
 				animation_s = 2;
@@ -466,7 +451,6 @@ void ScreenCtl::adjustTemperature()
 		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
 
 		if (m_auto_temp_step == target_step) {
-			LOGV << "Temp step already at target " << target_step;
 			first_step = true;
 			continue;
 		}
@@ -474,10 +458,6 @@ void ScreenCtl::adjustTemperature()
 		const int FPS      = cfg["temp_auto_fps"];
 		const int diff     = target_step - m_auto_temp_step;
 		const double slice = 1. / FPS;
-
-		LOGV << "Adjusting temp: " << m_auto_temp_step << " -> " << target_step;
-		//LOGV << "Seconds since the start (clamped by temp_auto_speed): " << time_since_start_s;
-		//LOGV << "Final adjustment duration: " << duration_s / 60 << " min";
 
 		double time   = 0;
 		int step      = -1;

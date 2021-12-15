@@ -24,17 +24,22 @@ int main(int argc, char **argv)
 		cout << "starting gummy\n";
 		pid_t pid = fork();
 
-		if (pid == 0) {
-
-			execl(CMAKE_INSTALL_DAEMON_PATH, "", nullptr);
-
-			execl("./gummyd", "", nullptr);
-
-			cout << "failed to start gummyd\n";
+		if (pid < 0) {
+			cout << "fork() failed\n";
 			std::exit(1);
 		}
 
-		std::exit(0);
+		// parent
+		if (pid > 0) {
+			std::exit(0);
+		}
+
+		execl(CMAKE_INSTALL_DAEMON_PATH, "", nullptr);
+
+		execl("./gummyd", "", nullptr);
+
+		cout << "failed to start gummyd\n";
+		std::exit(1);
 	});
 
 	app.add_subcommand("stop", "Stop the background process.")->callback([&] {

@@ -1,13 +1,11 @@
 ﻿#include "xorg.h"
-
-#include <sys/ipc.h>
-#include <sys/shm.h>
-
 #include "cfg.h"
 #include "../common/defs.h"
 #include "../common/utils.h"
 
-#include <plog/Log.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <syslog.h>
 #include <iostream>
 
 Xorg::Xorg()
@@ -77,7 +75,7 @@ Xorg::Xorg()
 		o.shminfo.shmid = shmget(IPC_PRIVATE, o.image_len, IPC_CREAT | 0600);
 		void *shm       = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
 		if (shm == reinterpret_cast<void*>(-1)) {
-			LOGF << "shmat failed";
+			syslog(LOG_ERR, "shmat failed");
 			exit(1);
 		}
 		o.shminfo.shmaddr  = o.image->data = reinterpret_cast<char*>(shm);
@@ -145,7 +143,7 @@ void Xorg::applyGammaRamp(Output &o, int brt_step, int temp_step)
 	auto c = xcb_randr_set_crtc_gamma_checked(m_conn, o.crtc, o.ramp_sz, r, g, b);
 	xcb_generic_error_t *e = xcb_request_check(m_conn, c);
 	if (e) {
-		LOGE << "randr set gamma error: " << int(e->error_code);
+		syslog(LOG_ERR, "randr set gamma error: %d", int(e->error_code));
 	}
 }
 

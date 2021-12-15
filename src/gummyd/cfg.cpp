@@ -8,7 +8,7 @@
 #include "cfg.h"
 #include <fstream>
 #include <iostream>
-#include <plog/Log.h>
+#include <syslog.h>
 
 json getDefault()
 {
@@ -26,7 +26,7 @@ json getDefault()
 	ret["temp_auto_high"]    = temp_k_min;
 	ret["temp_auto_low"]     = 3400;
 
-	ret["log_level"] = plog::warning;
+	ret["log_level"] = 3;
 
 	return ret;
 }
@@ -57,12 +57,11 @@ json cfg = getDefault();
 void config::read()
 {
 	const auto path = config::getPath();
-	LOGV << "Reading from: " << path;
 
 	std::ifstream file(path, std::fstream::in | std::fstream::app);
-
+\
 	if (!file.good() || !file.is_open()) {
-		LOGE << "Unable to open config";
+		syslog(LOG_USER | LOG_ERR, "Unable to open config");
 		return;
 	}
 
@@ -80,15 +79,14 @@ void config::read()
 	try {
 		file >> tmp;
 	} catch (json::exception &e) {
-		LOGE << e.what() << " - Resetting config...";
+
+		syslog(LOG_USER | LOG_ERR, "%s", e.what());
 		cfg = getDefault();
 		config::write();
 		return;
 	}
 
 	cfg.update(tmp);
-
-	LOGV << "Config parsed";
 }
 
 void config::write()
@@ -98,14 +96,14 @@ void config::write()
 	std::ofstream file(path, std::ofstream::out);
 
 	if (!file.good() || !file.is_open()) {
-		LOGE << "Unable to open config";
+		syslog(LOG_USER | LOG_ERR, "Unable to open config");
 		return;
 	}
 
 	try {
 		file << std::setw(4) << cfg;
 	} catch (json::exception &e) {
-		LOGE << e.what() << " id: " << e.id;
+		syslog(LOG_USER | LOG_ERR, "%s", e.what());
 		return;
 	}
 }
