@@ -31,8 +31,8 @@ set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
-set(CPACK_PACKAGE_DESCRIPTION "Automatic and manual adjustment of screen brightness and temperature.")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "X11 screen manager.")
+set(CPACK_PACKAGE_DESCRIPTION "automatic and manual adjustment of screen brightness and temperature.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "X11 screen manager")
 
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Francesco Fusco <fushkodev@outlook.it>")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Fushko/gummy")
