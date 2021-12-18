@@ -19,9 +19,9 @@
 */
 
 #include <filesystem>
-#include <fstream>
 #include <algorithm>
 #include <syslog.h>
+#include <libudev.h>
 
 std::vector<Device> Sysfs::getDevices()
 {
@@ -29,55 +29,34 @@ std::vector<Device> Sysfs::getDevices()
 
 	std::vector<Device> devices;
 
+	udev *udev = udev_new();
+
 	for (const auto &entry : fs::directory_iterator("/sys/class/backlight")) {
 
-		const auto path         = entry.path();
-		const auto path_str     = path.generic_string();
-		const auto max_brt_file = path_str + "/max_brightness";
+		const auto path = entry.path();
+		const auto path_str = path.generic_string();
 
-		std::ifstream stream(max_brt_file);
-		if (!stream.is_open()) {
-			syslog(LOG_ERR, "Unable to open %s", max_brt_file.c_str());
-			exit(1);
-		}
+		struct udev_device *dev = udev_device_new_from_syspath(udev, path_str.c_str());
 
-		std::string max_brt;
-		stream.read(max_brt.data(), sizeof(max_brt));
+		std::string max_brt(udev_device_get_sysattr_value(dev, "max_brightness"));
 
 		devices.emplace_back(
-		    path.filename(),
-		    path,
-		    path_str + "/brightness",
+		    dev,
 		    std::stoi(max_brt)
 		);
 	}
 
+	udev_unref(udev);
+
 	return devices;
 }
 
-Device::Device(std::string name, std::string path, std::string brt_file, int max_brt)
-    : name(name),
-      path(path),
-      brt_file(brt_file),
-      max_brt(max_brt)
-{
-
-}
-
-Device::Device(Device&& d)
-    : name(d.name),
-      path(d.path),
-      brt_file(d.brt_file),
-      max_brt(d.max_brt)
-{
-
-}
+Device::Device(udev_device *dev, int max_brt) : dev(dev), max_brt(max_brt) {}
+Device::Device(Device&& d) : dev(d.dev), max_brt(d.max_brt) {}
 
 void Device::setBacklight(int brt)
 {
     brt = std::clamp(brt, 0, max_brt);
-    std::string out(std::to_string(brt) + '\n');
-
-    std::ofstream stream(brt_file);
-    stream.write(out.c_str(), out.size());
+    udev_device_set_sysattr_value(
+                dev, "brightness", std::to_string(brt).c_str());
 }

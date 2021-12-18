@@ -21,12 +21,11 @@
 
 #include <vector>
 #include <filesystem>
+#include <libudev.h>
 
 class Device;
 class Sysfs
 {
-	Sysfs() = delete;
-	~Sysfs() = delete;
 public:
 	static std::vector<Device> getDevices();
 };
@@ -34,13 +33,11 @@ public:
 class Device
 {
 public:
-	Device(std::string, std::string, std::string, int);
+	Device(udev_device *udev_device, int);
 	Device(Device&&);
 	void setBacklight(int);
 private:
-	std::string name;
-	std::string path;
-	std::string brt_file;
+	struct udev_device *dev;
 	int max_brt;
 };
 

@@ -10,6 +10,7 @@ find_package(Threads REQUIRED)
 find_package(sdbus-c++ REQUIRED)
 find_library(XCB_LIB "xcb" REQUIRED)
 find_library(XCB_RANDR_LIB "xcb-randr" REQUIRED)
+find_library(UDEV_LIB "udev" REQUIRED)
 
 target_link_libraries(
 	${PROJECT_NAME} PRIVATE
@@ -18,6 +19,7 @@ target_link_libraries(
 	SDBusCpp::sdbus-c++
 	${XCB_LIB}
 	${XCB_RANDR_LIB}
+	${UDEV_LIB}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -27,4 +29,4 @@ if(NOT UDEV_DIR)
 endif()
 
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}")
-install(FILES ${CMAKE_SOURCE_DIR}/90-backlight.rules DESTINATION "${UDEV_DIR}")
+install(FILES ${CMAKE_SOURCE_DIR}/10-gummy.rules DESTINATION "${UDEV_DIR}")
