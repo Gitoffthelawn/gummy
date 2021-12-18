@@ -36,7 +36,7 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="Release"
 cmake --build .
 sudo make install
 ```
-A reboot is required to ensure udev rules to allow backlight adjustments are loaded.
+A reboot is required to ensure udev rules that allow backlight adjustments are loaded.
 
 # Usage
 
