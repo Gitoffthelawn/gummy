@@ -20,10 +20,11 @@ Requirements:
 - XCB-Randr
 - XLib-Shm
 - sdbus-c++
+- libudev
 
 #### Apt packages
 
-`sudo apt install build-essential cmake libxext-dev libxcb-randr0-dev libsdbus-c++-dev`
+`sudo apt install build-essential cmake libxext-dev libxcb-randr0-dev libsdbus-c++-dev libudev-dev`
 
 ### Installation
 
@@ -35,14 +36,7 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="Release"
 cmake --build .
 sudo make install
 ```
-
-The installation will apply a udev rule that allows users in the `video` group to apply backlight adjustments without root priviliges. For this to work, you also need to add your user to the `video` group:
-
-```
-sudo groupadd video
-usermod -a -G video {YOUR_USERNAME}
-```
-Then restart for the changes to take effect.
+A reboot is required to ensure udev rules to allow backlight adjustments are loaded.
 
 # Usage
 
