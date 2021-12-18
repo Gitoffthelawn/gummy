@@ -131,7 +131,9 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 					screenctl.notifyMonitor(i);
 				}
 
-				if (opts.brt_perc != -1 && opts.brt_auto != 1) {
+				if (opts.brt_perc != -1) {
+					cfg["screens"][i]["brt_auto"] = false;
+					screenctl.notifyMonitor(i);
 					cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 				}
 
@@ -184,7 +186,9 @@ void readMessages(Xorg &xorg, ScreenCtl &screenctl)
 				cfg["screens"][opts.scr_no]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
 			}
 
-			if (opts.brt_perc != -1 && opts.brt_auto != 1) {
+			if (opts.brt_perc != -1) {
+				cfg["screens"][opts.scr_no]["brt_auto"] = false;
+				screenctl.notifyMonitor(opts.scr_no);
 				cfg["screens"][opts.scr_no]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 			}
 
