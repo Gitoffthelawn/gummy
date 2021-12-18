@@ -33,11 +33,13 @@ class ScreenCtl
 {
 public:
     ScreenCtl(Xorg *server);
+    ~ScreenCtl();
+    void applyOptions(const std::string&);
+private:
     void notifyTemp();
     void notifyMonitor(int scr_idx);
     int getAutoTempStep();
-    ~ScreenCtl();
-private:
+
     Xorg *m_server;
     std::vector<Device> m_devices;
     std::vector<std::thread> m_threads;

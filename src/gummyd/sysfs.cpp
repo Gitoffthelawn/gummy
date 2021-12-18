@@ -1,6 +1,4 @@
-﻿#include "sysfs.h"
-#include "../common/defs.h"
-/**
+﻿/**
 * gummy
 * Copyright (C) 2022  Francesco Fusco
 *
@@ -17,6 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#include "sysfs.h"
+#include "../common/defs.h"
 
 #include <filesystem>
 #include <algorithm>
