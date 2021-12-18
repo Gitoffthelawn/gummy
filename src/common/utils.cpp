@@ -66,7 +66,7 @@ double easeInOutQuad(double t, double b, double c, double d)
 		return -c / 2 * ((t - 1) * (t - 3) - 1) + b;
 }
 
-bool alreadyRunning()
+int alreadyRunning()
 {
 	static int fd;
 	struct flock fl;
@@ -75,5 +75,9 @@ bool alreadyRunning()
 	fl.l_start  = 0;
 	fl.l_len    = 1;
 	fd = open(lock_name, O_WRONLY | O_CREAT, 0666);
-	return fd == -1 || fcntl(fd, F_SETLK, &fl) == -1;
+	if (fd == -1)
+		return 1;
+	if (fcntl(fd, F_SETLK, &fl) == -1)
+		return 2;
+	return 0;
 }

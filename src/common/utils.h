@@ -30,6 +30,6 @@ double stepToKelvin(int step, size_t color_ch);
 double easeOutExpo(double t, double b , double c, double d);
 double easeInOutQuad(double t, double b, double c, double d);
 
-bool alreadyRunning();
+int alreadyRunning();
 
 #endif // UTILS_H
