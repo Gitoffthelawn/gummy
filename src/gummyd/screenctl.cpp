@@ -216,7 +216,13 @@ void ScreenCtl::applyOptions(const std::string &json)
 		if (opts.brt_perc != -1) {
 			cfg["screens"][i]["brt_auto"] = false;
 			notifyMonitor(i);
-			cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+
+			if(m_monitors[i].hasBacklight()) {
+				cfg["screens"][i]["brt_step"] = brt_steps_max;
+				m_monitors[i].setBacklight(opts.brt_perc);
+			} else {
+				cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+			}
 		}
 
 		if (opts.brt_auto_min != -1) {
@@ -274,6 +280,16 @@ Monitor::~Monitor()
     m_quit = true;
     m_ss_cv.notify_one();
     m_ss_thr->join();
+}
+
+bool Monitor::hasBacklight()
+{
+    return m_device != nullptr;
+}
+
+void Monitor::setBacklight(int perc)
+{
+    return m_device->setBacklight(perc * 255 / 100);
 }
 
 void Monitor::notify()

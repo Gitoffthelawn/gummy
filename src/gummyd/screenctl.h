@@ -62,6 +62,8 @@ class Monitor
 public:
     Monitor(Monitor&&);
     Monitor(Xorg* server, Device *device, int scr_idx);
+    bool hasBacklight();
+    void setBacklight(int perc);
 
     void notify();
     ~Monitor();
