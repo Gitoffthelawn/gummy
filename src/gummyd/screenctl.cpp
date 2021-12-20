@@ -159,33 +159,44 @@ void ScreenCtl::applyOptions(const std::string &json)
 	Options opts(json);
 	bool notify_temp = false;
 
-	if (!opts.sunrise_time.empty()) {
-		cfg["temp_auto_sunrise"] = opts.sunrise_time;
-		notify_temp = true;
+	// Non-screen specific options
+	{
+		if (opts.temp_day_k != -1) {
+			cfg["temp_auto_high"] = opts.temp_day_k;
+			notify_temp = true;
+		}
+
+		if (opts.temp_night_k != -1) {
+			cfg["temp_auto_low"] = opts.temp_night_k;
+			notify_temp = true;
+		}
+
+		if (!opts.sunrise_time.empty()) {
+			cfg["temp_auto_sunrise"] = opts.sunrise_time;
+			notify_temp = true;
+		}
+
+		if (!opts.sunset_time.empty()) {
+			cfg["temp_auto_sunset"] = opts.sunset_time;
+			notify_temp = true;
+		}
+
+		if (opts.temp_adaptation_time != -1) {
+			cfg["temp_auto_speed"] = opts.temp_adaptation_time;
+			notify_temp = true;
+		}
 	}
 
-	if (!opts.sunset_time.empty()) {
-		cfg["temp_auto_sunset"] = opts.sunset_time;
-		notify_temp = true;
-	}
+	int start = 0;
+	int end = m_server->screenCount();
 
-	if (opts.temp_adaptation_time != -1) {
-		cfg["temp_auto_speed"] = opts.temp_adaptation_time;
-		notify_temp = true;
-	}
-
-	if (opts.temp_day_k != -1) {
-		cfg["temp_auto_high"] = opts.temp_day_k;
-		notify_temp = true;
-	}
-
-	if (opts.temp_night_k != -1) {
-		cfg["temp_auto_low"] = opts.temp_night_k;
-		notify_temp = true;
-	}
-
-	if (opts.scr_no == -1) {
-
+	if (opts.scr_no != -1) {
+		if (opts.scr_no > m_server->screenCount() - 1) {
+			syslog(LOG_ERR, "Screen %d not available", opts.scr_no);
+			return;
+		}
+		start = end = opts.scr_no;
+	} else {
 		if (opts.temp_k != -1) {
 			cfg["temp_auto"] = false;
 			notify_temp = true;
@@ -193,89 +204,47 @@ void ScreenCtl::applyOptions(const std::string &json)
 			cfg["temp_auto"] = bool(opts.temp_auto);
 			notify_temp = true;
 		}
+	}
 
-		for (int i = 0; i < m_server->screenCount(); ++i) {
-
-			if (opts.temp_k != -1) {
-				cfg["screens"][i]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
-			} else if (opts.temp_auto == 1) {
-				cfg["screens"][i]["temp_step"] = m_auto_temp_step;
-			}
-
-			if (opts.brt_auto != -1) {
-				cfg["screens"][i]["brt_auto"] = bool(opts.brt_auto);
-				notifyMonitor(i);
-			}
-
-			if (opts.brt_perc != -1) {
-				cfg["screens"][i]["brt_auto"] = false;
-				notifyMonitor(i);
-				cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
-			}
-
-			if (opts.brt_auto_min != -1) {
-				cfg["screens"][i]["brt_auto_min"] = int(remap(opts.brt_auto_min, 0, 100, 0, brt_steps_max));
-			}
-
-			if (opts.brt_auto_max != -1) {
-				cfg["screens"][i]["brt_auto_max"] = int(remap(opts.brt_auto_max, 0, 100, 0, brt_steps_max));
-			}
-
-			if (opts.brt_auto_offset != -1) {
-				cfg["screens"][i]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
-			}
-		}
-
-		m_server->setGamma();
-	} else {
-
-		if (opts.scr_no > m_server->screenCount() - 1) {
-			syslog(LOG_ERR, "Screen %d not available", opts.scr_no);
-			return;
-		}
+	for (int i = start; i < end; ++i) {
 
 		if (opts.brt_auto != -1) {
-			cfg["screens"][opts.scr_no]["brt_auto"] = bool(opts.brt_auto);
-			notifyMonitor(opts.scr_no);
-		}
-
-		if (opts.temp_k != -1) {
-			cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
-			cfg["screens"][opts.scr_no]["temp_auto"] = false;
-		} else if (opts.temp_auto != -1) {
-			cfg["screens"][opts.scr_no]["temp_auto"] = bool(opts.temp_auto);
-
-			if (opts.temp_auto == 1) {
-				cfg["screens"][opts.scr_no]["temp_step"] = m_auto_temp_step;
-			}
-		}
-
-		if (opts.brt_auto_min != -1) {
-			cfg["screens"][opts.scr_no]["brt_auto_min"] = int(remap(opts.brt_auto_min, 0, 100, 0, brt_steps_max));
-		}
-
-		if (opts.brt_auto_max != -1) {
-			cfg["screens"][opts.scr_no]["brt_auto_max"] = int(remap(opts.brt_auto_max, 0, 100, 0, brt_steps_max));
-		}
-
-		if (opts.brt_auto_offset != -1) {
-			cfg["screens"][opts.scr_no]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
+			cfg["screens"][i]["brt_auto"] = bool(opts.brt_auto);
+			notifyMonitor(i);
 		}
 
 		if (opts.brt_perc != -1) {
-			cfg["screens"][opts.scr_no]["brt_auto"] = false;
-			notifyMonitor(opts.scr_no);
-			cfg["screens"][opts.scr_no]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+			cfg["screens"][i]["brt_auto"] = false;
+			notifyMonitor(i);
+			cfg["screens"][i]["brt_step"] = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
+		}
+
+		if (opts.brt_auto_min != -1) {
+			cfg["screens"][i]["brt_auto_min"] = int(remap(opts.brt_auto_min, 0, 100, 0, brt_steps_max));
+		}
+
+		if (opts.brt_auto_max != -1) {
+			cfg["screens"][i]["brt_auto_max"] = int(remap(opts.brt_auto_max, 0, 100, 0, brt_steps_max));
+		}
+
+		if (opts.brt_auto_offset != -1) {
+			cfg["screens"][i]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
 		}
 
 		if (opts.temp_k != -1) {
-			cfg["screens"][opts.scr_no]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+			cfg["screens"][i]["temp_step"] = int(remap(opts.temp_k, temp_k_min, temp_k_max, 0, temp_steps_max));
+			cfg["screens"][i]["temp_auto"] = false;
+		} else if (opts.temp_auto != -1) {
+			cfg["screens"][i]["temp_auto"] = bool(opts.temp_auto);
+			if (opts.temp_auto == 1) {
+				cfg["screens"][i]["temp_step"] = m_auto_temp_step;
+			}
 		}
 
 		m_server->setGamma(
-		    opts.scr_no,
-		    cfg["screens"][opts.scr_no]["brt_step"],
-		    cfg["screens"][opts.scr_no]["temp_step"]
+		    i,
+		    cfg["screens"][i]["brt_step"],
+		    cfg["screens"][i]["temp_step"]
 		);
 	}
 
