@@ -118,7 +118,6 @@ int Xorg::getScreenBrightness(const int scr_idx)
 
 void Xorg::setGamma(const int scr_idx, const int brt_step, const int temp_step)
 {
-	//LOGV <<  "setGamma() scr " << scr_idx << ": "  << brt_step << " - " << temp_step;
 	applyGammaRamp(m_outputs[scr_idx], brt_step, temp_step);
 }
 

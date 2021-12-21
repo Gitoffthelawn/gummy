@@ -83,7 +83,7 @@ ScreenCtl::ScreenCtl(Xorg *server)
 	}
 
 	m_server->setGamma();
-	//m_threads.emplace_back([this] { reapplyGamma(); });
+	m_threads.emplace_back([this] { reapplyGamma(); });
 }
 
 bool ScreenCtl::listenWakeupSignal()
@@ -144,7 +144,7 @@ void ScreenCtl::reapplyGamma()
 	while (true) {
 		{
 			std::unique_lock<std::mutex> lock(mtx);
-			m_gamma_refresh_cv.wait_until(lock, system_clock::now() + 5s, [&] {
+			m_gamma_refresh_cv.wait_until(lock, system_clock::now() + 10s, [&] {
 				return m_quit;
 			});
 		}
