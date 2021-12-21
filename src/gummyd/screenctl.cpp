@@ -195,7 +195,8 @@ void ScreenCtl::applyOptions(const std::string &json)
 			syslog(LOG_ERR, "Screen %d not available", opts.scr_no);
 			return;
 		}
-		start = end = opts.scr_no;
+		start = opts.scr_no;
+		end = start + 1;
 	} else {
 		if (opts.temp_k != -1) {
 			cfg["temp_auto"] = false;
