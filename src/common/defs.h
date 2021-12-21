@@ -21,7 +21,6 @@
 
 #include <array>
 
-constexpr const char* app_version = "0.1";
 constexpr const char* config_name = "gummyconf";
 constexpr const char* fifo_name   = "/tmp/gummy.fifo";
 constexpr const char* lock_name   = "/tmp/gummy.lock";

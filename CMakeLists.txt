@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(gummy VERSION 0.1 LANGUAGES CXX)
 
+add_compile_definitions(VERSION="${PROJECT_VERSION}")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -22,7 +24,6 @@ set(
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_STRIP_FILES YES)
-
 set(CPACK_PACKAGE_CONTACT "fushkodev@outlook.it")
 
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})

@@ -54,17 +54,18 @@ void readMessages(ScreenCtl &screenctl)
 int main(int argc, char **argv)
 {
 	if (argc > 1 && strcmp(argv[1], "-v") == 0) {
-		std::cout << app_version << '\n';
-		return 0;
+		std::cout << VERSION << '\n';
+		std::exit(0);
 	}
 
+	openlog("gummyd", LOG_PID, LOG_DAEMON);
+
 	if (alreadyRunning()) {
-		return 0;
+		syslog(LOG_ERR, "already running");
+		std::exit(1);
 	}
 
 	config::read();
-
-	openlog("gummyd", LOG_PID, LOG_DAEMON);
 
 	Xorg xorg;
 
