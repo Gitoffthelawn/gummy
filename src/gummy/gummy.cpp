@@ -128,6 +128,11 @@ int main(int argc, const char **argv)
 	app.add_option("-u,--sunset-time", sunset_time, "Set sunset time in 24h format, for example `16:30`.")->check(time_format_callback);
 	app.add_option("-i,--temp-adaptation-time", adapt_time, "Temperature adaptation time in minutes.\nFor example, if this option is set to 30 min. and the sunset time is at 16:30,\ntemperature starts adjusting at 16:00, going down gradually until 16:30.");
 
+	app.add_flag("-v,--version", [] ([[maybe_unused]] int64_t t) {
+		cout << VERSION << '\n';
+		std::exit(0);
+	}, "Show version and quit.");
+
 	// show help with no args
 	if (argc == 1) {
 		++argc;
