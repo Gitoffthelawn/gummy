@@ -90,7 +90,7 @@ std::string time_format_callback(const std::string &s)
 	return std::string("");
 }
 
-int main(int argc, char **argv)
+int main(int argc, const char **argv)
 {
 	CLI::App app("Screen manager for X11.", "gummy");
 
@@ -127,6 +127,12 @@ int main(int argc, char **argv)
 	app.add_option("-y,--sunrise-time", sunrise_time, "Set sunrise time in 24h format, for example `06:00`.")->check(time_format_callback);
 	app.add_option("-u,--sunset-time", sunset_time, "Set sunset time in 24h format, for example `16:30`.")->check(time_format_callback);
 	app.add_option("-i,--temp-adaptation-time", adapt_time, "Temperature adaptation time in minutes.\nFor example, if this option is set to 30 min. and the sunset time is at 16:30,\ntemperature starts adjusting at 16:00, going down gradually until 16:30.");
+
+	// show help with no args
+	if (argc == 1) {
+		++argc;
+		argv[1] = "-h";
+	}
 
 	CLI11_PARSE(app, argc, argv);
 
