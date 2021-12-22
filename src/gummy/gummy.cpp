@@ -128,28 +128,45 @@ int main(int argc, const char **argv)
 	std::string sunrise_time;
 	std::string sunset_time;
 
-	app.add_option("-s,--screen", scr_no, "Screen on which to act. If omitted, any changes will be applied on all screens.")->check(CLI::Range(0, 99));
-
-	app.add_option("-b,--brightness", brt, "Set screen brightness percentage.")->check(CLI::Range(5, 100));
-	app.add_option("-B,--brt-mode", bm, "Brightness mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
-	app.add_option("-N,--brt-auto-min", brt_auto_min, "Set minimum automatic brightness.")->check(CLI::Range(5, 100));
-	app.add_option("-M,--brt-auto-max", brt_auto_max, "Set maximum automatic brightness.")->check(CLI::Range(5, 100));
-	app.add_option("-L,--brt-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(-100, 100));
-	app.add_option("--brt-auto-speed", brt_auto_speed, "Set brightness adaptation speed in milliseconds. Default is 1000 ms.")->check(CLI::Range(1, 10000));
-	app.add_option("--screenshot-rate", scr_rate, "Screenshot rate in milliseconds.\nReducing this value results in a smaller delay before determining the correct brightness, but also increases CPU usage.")->check(CLI::Range(1, 5000));
-
-	app.add_option("-t,--temperature", temp, "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled.")->check(CLI::Range(temp_k_max, temp_k_min));
-	app.add_option("-T,--temp-mode", tm, "Temperature mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
-	app.add_option("-j,--temp-day", temp_day, "Set day time temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min));
-	app.add_option("-k,--temp-night", temp_night, "Set night time temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min));
-	app.add_option("-y,--sunrise-time", sunrise_time, "Set sunrise time in 24h format, for example `06:00`.")->check(time_format_callback);
-	app.add_option("-u,--sunset-time", sunset_time, "Set sunset time in 24h format, for example `16:30`.")->check(time_format_callback);
-	app.add_option("-i,--temp-adaptation-time", adapt_time, "Temperature adaptation time in minutes.\nFor example, if this option is set to 30 min. and the sunset time is at 16:30,\ntemperature starts adjusting at 16:00, going down gradually until 16:30.");
-
 	app.add_flag("-v,--version", [] ([[maybe_unused]] int64_t t) {
 		cout << VERSION << '\n';
 		std::exit(0);
-	}, "Show version and quit.");
+	}, "Print version and exit");
+
+	app.add_option("-s,--screen", scr_no,
+	               "Screen on which to act. If omitted, any changes will be applied on all screens.")->check(CLI::Range(0, 99));
+
+	std::string brt_grp("Brightness options");
+	app.add_option("-b,--brightness", brt,
+	               "Set screen brightness percentage.")->check(CLI::Range(5, 100))->group(brt_grp);
+	app.add_option("-B,--brt-mode", bm,
+	               "Brightness mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1))->group(brt_grp);
+	app.add_option("-N,--brt-auto-min", brt_auto_min,
+	               "Set minimum automatic brightness.")->check(CLI::Range(5, 100))->group(brt_grp);
+	app.add_option("-M,--brt-auto-max", brt_auto_max,
+	               "Set maximum automatic brightness.")->check(CLI::Range(5, 100))->group(brt_grp);
+	app.add_option("-L,--brt-auto-offset", brt_auto_offset,
+	               "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(-100, 100))->group(brt_grp);
+	app.add_option("--brt-auto-speed", brt_auto_speed,
+	               "Set brightness adaptation speed in milliseconds. Default is 1000 ms.")->check(CLI::Range(1, 10000))->group(brt_grp);
+	app.add_option("--screenshot-rate", scr_rate,
+	               "Screenshot rate in milliseconds.\nReducing this value results in a smaller delay before determining the correct brightness, but also increases CPU usage.")->check(CLI::Range(1, 5000))->group(brt_grp);
+
+	std::string temp_grp("Temperature options");
+	app.add_option("-t,--temperature", temp,
+	               "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled.")->check(CLI::Range(temp_k_max, temp_k_min))->group(temp_grp);
+	app.add_option("-T,--temp-mode", tm,
+	               "Temperature mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1))->group(temp_grp);
+	app.add_option("-j,--temp-day", temp_day,
+	               "Set day time temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min))->group(temp_grp);
+	app.add_option("-k,--temp-night", temp_night,
+	               "Set night time temperature in kelvins.")->check(CLI::Range(temp_k_max, temp_k_min))->group(temp_grp);
+	app.add_option("-y,--sunrise-time", sunrise_time,
+	               "Set sunrise time in 24h format, for example `06:00`.")->check(time_format_callback)->group(temp_grp);
+	app.add_option("-u,--sunset-time", sunset_time,
+	               "Set sunset time in 24h format, for example `16:30`.")->check(time_format_callback)->group(temp_grp);
+	app.add_option("-i,--temp-adaptation-time", adapt_time,
+	               "Temperature adaptation time in minutes.\nFor example, if this option is set to 30 min. and the sunset time is at 16:30,\ntemperature starts adjusting at 16:00, going down gradually until 16:30.")->group(temp_grp);
 
 	// show help with no args
 	if (argc == 1) {
