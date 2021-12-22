@@ -1,16 +1,18 @@
 # gummy
 
-X11 CLI screen manager.
-
-Allows automatic and manual brightness adjustment, via backlight (currently only for embedded displays) or gamma as a fallback. Multiple monitors are supported.
+CLI screen manager for X11 that allows automatic and manual brightness/temperature adjustments, via backlight (currently only for embedded displays) and gamma. Multiple monitors are supported.
 
 Automatic screen brightness is based on screen contents. Possibly in the future I'll add support for ambient light sensors.
 
-It also allows automatic and manual temperature.
+Disclaimer: this program is still in development! You are welcome and encouraged to submit bug reports, suggestions and pull requests.
 
-Disclaimer: this app is still in early development! You are welcome and encouraged to submit bug reports, suggestions and pull requests.
+## Installation
 
-# Build
+DEB packages are provided in each new [release.](https://github.com/Fushko/gummy/releases) RPM packages to be added in the future.
+
+A reboot is required after the installation to ensure udev rules for backlight adjustments are loaded.
+
+## Building from source
 
 Requirements:
 
@@ -36,11 +38,10 @@ cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE="Release"
 cmake --build .
 sudo make install
 ```
-A reboot is required to ensure udev rules that allow backlight adjustments are loaded.
 
-# Usage
+## Usage
 
-Type `gummy -h` to print the help text.
+Type `gummy -h` to print a help message.
 
 Quick guide:
 
@@ -56,7 +57,11 @@ Quick guide:
 
 `gummy -T 1 -y 06:00 -u 16:30` enables auto temperature on all screens, with the sunrise set to 06:00 and sunset to 16:30.
 
-# License
+## Donations
+
+You can buy me a coffee at: https://coindrop.to/fushko
+
+## License
 
 Copyright (C) Francesco Fusco. All rights reserved.
 
