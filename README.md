@@ -2,7 +2,7 @@
 
 CLI screen manager for X11 that allows automatic and manual brightness/temperature adjustments, via backlight (currently only for embedded displays) and gamma. Multiple monitors are supported.
 
-Automatic screen brightness is based on screen contents. Possibly in the future I'll add support for ambient light sensors.
+Automatic brightness is based on screen contents. Support for ambient light sensors is planned.
 
 Disclaimer: this program is still in development! You are welcome and encouraged to submit bug reports, suggestions and pull requests.
 
