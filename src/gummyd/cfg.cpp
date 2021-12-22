@@ -29,7 +29,6 @@ json getDefault()
 	config::addScreenEntries(ret, 1);
 
 	ret["brt_auto_fps"]      = 60;
-	ret["brt_auto_speed"]    = 1000; // ms
 
 	ret["temp_auto"]         = false;
 	ret["temp_auto_fps"]     = 45;
@@ -49,10 +48,11 @@ void config::addScreenEntries(json &config, int n)
 	json screen = {
 	    {"brt_auto", false},
 	    {"brt_auto_threshold", 8},
-	    {"brt_auto_polling_rate", 100},
+	    {"brt_auto_polling_rate", 1000}, // ms
+	    {"brt_auto_speed", 1000}, // ms
 	    {"brt_auto_min", brt_steps_max / 2},
 	    {"brt_auto_max", brt_steps_max},
-	    {"brt_auto_offset", brt_steps_max / 3},
+	    {"brt_auto_offset", 0},
 	    {"brt_step", brt_steps_max},
 	    {"temp_auto", false},
 	    {"temp_step", 0},

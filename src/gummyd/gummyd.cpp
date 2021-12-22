@@ -28,24 +28,24 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <fstream>
 
 void readMessages(ScreenCtl &screenctl)
 {
 	mkfifo(fifo_name, S_IFIFO|0640);
 
 	while (1) {
-		int fd = open(fifo_name, O_RDONLY);
-		char rdbuf[255];
 
-		int len = read(fd, rdbuf, sizeof(rdbuf));
-		rdbuf[len] = '\0';
+		std::ifstream fs(fifo_name);
+		std::ostringstream ss;
+		ss << fs.rdbuf();
+		std::string s(ss.str());
 
-		if (strcmp(rdbuf, "stop") == 0) {
-			close(fd);
-			break;
+		if (s == "stop") {
+			return;
 		}
 
-		screenctl.applyOptions(rdbuf);
+		screenctl.applyOptions(s);
 
 		config::write();
 	}

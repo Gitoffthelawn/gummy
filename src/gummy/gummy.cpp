@@ -21,11 +21,30 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <CLI11.hpp>
-#include <json.hpp>
 #include "../common/defs.h"
 #include "../common/utils.h"
 
+#include <json.hpp>
+#include <fstream>
+
 using std::cout;
+
+void send(const std::string &s)
+{
+	std::ofstream fs(fifo_name);
+
+	if (!fs.good()) {
+		std::cout << "fifo open error, aborting\n";
+		std::exit(1);
+	}
+
+	fs.write(s.c_str(), s.size());
+
+	if (!fs.good()) {
+		std::cout << "fifo write error, aborting\n";
+		std::exit(1);
+	}
+}
 
 void start()
 {
@@ -59,11 +78,7 @@ void stop()
 		std::exit(0);
 	}
 
-	int fd = open(fifo_name, O_CREAT|O_WRONLY, 0600);
-
-	std::string s("stop");
-	write(fd, s.c_str(), s.size());
-	close(fd);
+	send("stop");
 
 	cout << "gummy stopped\n";
 	std::exit(0);
@@ -104,6 +119,8 @@ int main(int argc, const char **argv)
 	int brt_auto_min    = -1;
 	int brt_auto_max    = -1;
 	int brt_auto_offset = -1;
+	int brt_auto_speed  = -1;
+	int scr_rate        = -1;
 	int temp            = -1;
 	int tm              = -1;
 	int temp_day        = -1;
@@ -119,6 +136,8 @@ int main(int argc, const char **argv)
 	app.add_option("-N,--brt-auto-min", brt_auto_min, "Set minimum automatic brightness.")->check(CLI::Range(5, 100));
 	app.add_option("-M,--brt-auto-max", brt_auto_max, "Set maximum automatic brightness.")->check(CLI::Range(5, 100));
 	app.add_option("-L,--brt-auto-offset", brt_auto_offset, "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(-100, 100));
+	app.add_option("--brt-auto-speed", brt_auto_speed, "Set brightness adaptation speed in milliseconds. Default is 1000 ms.")->check(CLI::Range(1, 10000));
+	app.add_option("--screenshot-rate", scr_rate, "Screenshot rate in milliseconds.\nReducing this value results in a smaller delay before determining the correct brightness, but also increases CPU usage.")->check(CLI::Range(1, 5000));
 
 	app.add_option("-t,--temperature", temp, "Set screen temperature in kelvins.\nSetting this option will disable automatic temperature if enabled.")->check(CLI::Range(temp_k_max, temp_k_min));
 	app.add_option("-T,--temp-mode", tm, "Temperature mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1));
@@ -152,6 +171,8 @@ int main(int argc, const char **argv)
 		{"brt_auto_min", brt_auto_min},
 		{"brt_auto_max", brt_auto_max},
 		{"brt_auto_offset", brt_auto_offset},
+		{"brt_auto_speed", brt_auto_speed},
+		{"brt_auto_screenshot_rate", scr_rate},
 		{"temp_mode", tm},
 		{"brt_perc", brt},
 		{"temp_k", temp},
@@ -159,13 +180,9 @@ int main(int argc, const char **argv)
 		{"temp_night_k", temp_night},
 		{"sunrise_time", sunrise_time},
 		{"sunset_time", sunset_time},
-		{"temp_adaptation_time", adapt_time}
+		{"temp_adaptation_time", adapt_time},
 	};
 
-	std::string s(msg.dump());
-
-	int fd = open(fifo_name, O_CREAT | O_WRONLY, 0600);
-	write(fd, s.c_str(), s.size());
-	close(fd);
+	send(msg.dump());
 	return 0;
 }

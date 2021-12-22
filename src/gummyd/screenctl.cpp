@@ -30,17 +30,19 @@ struct Options {
 		json msg = json::parse(in);
 		scr_no          = msg["scr_no"];
 		brt_perc        = msg["brt_perc"];
-		temp_k          = msg["temp_k"];
 		brt_auto        = msg["brt_mode"];
 		brt_auto_min    = msg["brt_auto_min"];
 		brt_auto_max    = msg["brt_auto_max"];
 		brt_auto_offset = msg["brt_auto_offset"];
+		brt_auto_speed  = msg["brt_auto_speed"];
+		screenshot_rate_ms = msg["brt_auto_screenshot_rate"];
+		temp_k          = msg["temp_k"];
 		temp_auto       = msg["temp_mode"];
+		temp_day_k      = msg["temp_day_k"];
+		temp_night_k    = msg["temp_night_k"];
 		sunrise_time    = msg["sunrise_time"];
 		sunset_time     = msg["sunset_time"];
 		temp_adaptation_time = msg["temp_adaptation_time"];
-		temp_day_k      = msg["temp_day_k"];
-		temp_night_k    = msg["temp_night_k"];
 	}
 	int scr_no          = -1;
 	int brt_perc        = -1;
@@ -48,6 +50,8 @@ struct Options {
 	int brt_auto_min    = -1;
 	int brt_auto_max    = -1;
 	int brt_auto_offset = -1;
+	int brt_auto_speed  = -1;
+	int screenshot_rate_ms = -1;
 	int temp_auto       = -1;
 	int temp_k          = -1;
 	int temp_day_k      = -1;
@@ -236,6 +240,14 @@ void ScreenCtl::applyOptions(const std::string &json)
 
 		if (opts.brt_auto_offset != -1) {
 			cfg["screens"][i]["brt_auto_offset"] = int(remap(opts.brt_auto_offset, 0, 100, 0, brt_steps_max));
+		}
+
+		if (opts.brt_auto_speed != -1) {
+			cfg["screens"][i]["brt_auto_speed"] = opts.brt_auto_speed;
+		}
+
+		if (opts.screenshot_rate_ms != -1) {
+			cfg["screens"][i]["brt_auto_polling_rate"] = opts.screenshot_rate_ms;
 		}
 
 		if (opts.temp_k != -1) {
@@ -427,7 +439,7 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 
 		const int    FPS         = cfg["brt_auto_fps"];
 		const double slice       = 1. / FPS;
-		const double animation_s = cfg["brt_auto_speed"].get<double>() / 1000;
+		const double animation_s = cfg["screens"][m_scr_idx]["brt_auto_speed"].get<double>() / 1000;
 		const int    diff        = target_step - cur_step;
 
 		double time   = 0;
