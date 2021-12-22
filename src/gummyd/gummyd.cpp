@@ -30,25 +30,36 @@
 #include <fcntl.h>
 #include <fstream>
 
-void readMessages(ScreenCtl &screenctl)
+int readMessages(ScreenCtl &screenctl)
 {
-	mkfifo(fifo_name, S_IFIFO|0640);
+	if (mkfifo(fifo_name, S_IFIFO|0640) == 1) {
+		syslog(LOG_ERR, "unable to make fifo (err %d), aborting\n", errno);
+		return 1;
+	}
 
 	while (1) {
 
 		std::ifstream fs(fifo_name);
+
+		if (!fs.good()) {
+			syslog(LOG_ERR, "unable to open fifo, aborting\n");
+			return 1;
+		}
+
 		std::ostringstream ss;
 		ss << fs.rdbuf();
 		std::string s(ss.str());
 
 		if (s == "stop") {
-			return;
+			return 0;
 		}
 
 		screenctl.applyOptions(s);
 
 		config::write();
 	}
+
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -60,8 +71,8 @@ int main(int argc, char **argv)
 
 	openlog("gummyd", LOG_PID, LOG_DAEMON);
 
-	if (alreadyRunning()) {
-		syslog(LOG_ERR, "already running");
+	if (int err = set_lock() > 0) {
+		syslog(LOG_ERR, "lockfile err %d", err);
 		std::exit(1);
 	}
 
@@ -77,7 +88,5 @@ int main(int argc, char **argv)
 
 	ScreenCtl screenctl(&xorg);
 
-	readMessages(screenctl);
-
-	return 0;
+	return readMessages(screenctl);
 }

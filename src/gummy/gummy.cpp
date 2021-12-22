@@ -16,16 +16,15 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <iostream>
-#include <regex>
-#include <unistd.h>
-#include <fcntl.h>
-#include <CLI11.hpp>
 #include "../common/defs.h"
 #include "../common/utils.h"
 
+#include <CLI11.hpp>
 #include <json.hpp>
+
 #include <fstream>
+#include <regex>
+#include <unistd.h>
 
 using std::cout;
 
@@ -48,7 +47,7 @@ void send(const std::string &s)
 
 void start()
 {
-	if (alreadyRunning()) {
+	if (set_lock()) {
 		cout << "already started\n";
 		std::exit(0);
 	}
@@ -73,7 +72,7 @@ void start()
 
 void stop()
 {
-	if (!alreadyRunning()) {
+	if (!set_lock()) {
 		cout << "already stopped\n";
 		std::exit(0);
 	}
@@ -86,7 +85,7 @@ void stop()
 
 void status()
 {
-	cout << (alreadyRunning() ? "running" : "not running") << "\n";
+	cout << (set_lock() ? "running" : "not running") << "\n";
 	std::exit(0);
 }
 
@@ -160,7 +159,7 @@ int main(int argc, const char **argv)
 
 	CLI11_PARSE(app, argc, argv);
 
-	if (!alreadyRunning()) {
+	if (set_lock() > 0) {
 		cout << "gummy is not running.\nType: `gummy start`\n";
 		std::exit(1);
 	}

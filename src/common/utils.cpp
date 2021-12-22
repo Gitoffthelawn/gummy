@@ -18,6 +18,7 @@
 
 #include "utils.h"
 #include "defs.h"
+
 #include <fcntl.h>
 #include <cmath>
 
@@ -66,18 +67,20 @@ double easeInOutQuad(double t, double b, double c, double d)
 		return -c / 2 * ((t - 1) * (t - 3) - 1) + b;
 }
 
-int alreadyRunning()
+int set_lock()
 {
-	static int fd;
-	struct flock fl;
+	int fd = open(lock_name, O_WRONLY | O_CREAT, 0666);
+	if (fd == -1)
+		return 1;
+
+	flock fl;
 	fl.l_type   = F_WRLCK;
 	fl.l_whence = SEEK_SET;
 	fl.l_start  = 0;
 	fl.l_len    = 1;
-	fd = open(lock_name, O_WRONLY | O_CREAT, 0666);
-	if (fd == -1)
-		return 1;
+
 	if (fcntl(fd, F_SETLK, &fl) == -1)
 		return 2;
+
 	return 0;
 }
