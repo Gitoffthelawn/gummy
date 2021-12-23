@@ -432,8 +432,8 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		}
 
 		if (m_device) {
-			cur_step = target_step * 255 / brt_steps_max;
-			m_device->setBacklight(cur_step);
+			cur_step = target_step;
+			m_device->setBacklight(cur_step * m_device->max_brt / brt_steps_max);
 			continue;
 		}
 

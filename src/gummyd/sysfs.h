@@ -35,10 +35,10 @@ class Device
 public:
 	Device(udev_device *udev_device, int);
 	Device(Device&&);
+	const int max_brt;
 	void setBacklight(int);
 private:
-	struct udev_device *dev;
-	int max_brt;
+	udev_device *dev;
 };
 
 #endif // SYSFS_H

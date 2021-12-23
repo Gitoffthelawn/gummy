@@ -37,9 +37,9 @@ std::vector<Device> Sysfs::getDevices()
 		const auto path = entry.path();
 		const auto path_str = path.generic_string();
 
-		struct udev_device *dev = udev_device_new_from_syspath(udev, path_str.c_str());
+		udev_device *dev = udev_device_new_from_syspath(udev, path_str.c_str());
 
-		std::string max_brt(udev_device_get_sysattr_value(dev, "max_brightness"));
+		const std::string max_brt(udev_device_get_sysattr_value(dev, "max_brightness"));
 
 		devices.emplace_back(
 		    dev,
@@ -52,8 +52,8 @@ std::vector<Device> Sysfs::getDevices()
 	return devices;
 }
 
-Device::Device(udev_device *dev, int max_brt) : dev(dev), max_brt(max_brt) {}
-Device::Device(Device&& d) : dev(d.dev), max_brt(d.max_brt) {}
+Device::Device(udev_device *dev, const int max_brt) : max_brt(max_brt), dev(dev) {}
+Device::Device(Device&& d) : max_brt(d.max_brt), dev(d.dev) {}
 
 void Device::setBacklight(int brt)
 {
