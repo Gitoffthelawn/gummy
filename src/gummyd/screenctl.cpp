@@ -416,7 +416,7 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 
 		const int ss_step = ss_brt * brt_steps_max / 255;
 
-		// Offset relative to the max brightness. Only relevant on max brightness > 100%.
+		// Offset relative to the max brightness.
 		const int offset = cfg["screens"][m_scr_idx]["brt_auto_offset"].get<int>()
 		        * brt_steps_max
 		        / cfg["screens"][m_scr_idx]["brt_auto_max"].get<int>();
@@ -432,8 +432,8 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		}
 
 		if (m_device) {
-			const int step = target_step * 255 / brt_steps_max;
-			m_device->setBacklight(step);
+			cur_step = target_step * 255 / brt_steps_max;
+			m_device->setBacklight(cur_step);
 			continue;
 		}
 
