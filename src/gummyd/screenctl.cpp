@@ -30,8 +30,8 @@ TempCtl::TempCtl(Xorg *xorg)
 
 TempCtl::~TempCtl()
 {
-    notify(true);
-    _thr->join();
+	notify(true);
+	_thr->join();
 }
 
 void TempCtl::notify(bool quit)
@@ -204,16 +204,16 @@ void TempCtl::adjust(Xorg *server)
 
 void TempCtl::updateInterval()
 {
-    // Get current timestamp
-    _cur_time = std::time(nullptr);
+	// Get current timestamp
+	_cur_time = std::time(nullptr);
 
-    // Get tm struct from it
-    std::tm *cur_tm = std::localtime(&_cur_time);
+	// Get tm struct from it
+	std::tm *cur_tm = std::localtime(&_cur_time);
 
-    // Set hour and min for sunrise
-    std::string sr(cfg["temp_auto_sunrise"]);
-    cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
-    cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
+	// Set hour and min for sunrise
+	std::string sr(cfg["temp_auto_sunrise"]);
+	cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
+	cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
 
 	// Subtract adaptation time
 	cur_tm->tm_sec  = 0;
@@ -233,8 +233,9 @@ void TempCtl::updateInterval()
 	_sunset_time = std::mktime(cur_tm);
 }
 
-struct Options {
-	Options(std::string in)
+struct Options
+{
+    Options(std::string in)
 	{
 		json msg = json::parse(in);
 		scr_no          = msg["scr_no"];
@@ -275,7 +276,7 @@ ScreenCtl::ScreenCtl(Xorg *server)
       _devices(Sysfs::getDevices()),
       _temp_ctl(server)
 {
-    registerWakeupSig();
+	registerWakeupSig();
 
 	_monitors.reserve(_server->screenCount());
 	for (int i = 0; i < _server->screenCount(); ++i) {
@@ -486,29 +487,29 @@ Monitor::Monitor(Monitor &&o)
     : _server(o._server),
       _scr_idx(o._scr_idx)
 {
-    _thr.swap(o._thr);
+	_thr.swap(o._thr);
 }
 
 Monitor::~Monitor()
 {
-    _quit = true;
-    _ss_cv.notify_one();
-    _thr->join();
+	_quit = true;
+	_ss_cv.notify_one();
+	_thr->join();
 }
 
 bool Monitor::hasBacklight()
 {
-    return _device != nullptr;
+	return _device != nullptr;
 }
 
 void Monitor::setBacklight(int perc)
 {
-    return _device->setBacklight(perc * 255 / 100);
+	return _device->setBacklight(perc * 255 / 100);
 }
 
 void Monitor::notify()
 {
-    _ss_cv.notify_one();
+	_ss_cv.notify_one();
 }
 
 void Monitor::capture()
@@ -564,8 +565,8 @@ void Monitor::capture()
 			}
 
 			if (   cfg["screens"][_scr_idx]["brt_auto_min"] != prev_min
-			    || cfg["screens"][_scr_idx]["brt_auto_max"] != prev_max
-			    || cfg["screens"][_scr_idx]["brt_auto_offset"] != prev_offset)
+			|| cfg["screens"][_scr_idx]["brt_auto_max"] != prev_max
+			|| cfg["screens"][_scr_idx]["brt_auto_offset"] != prev_offset)
 				force = true;
 
 			prev_ss_brt = ss_brt;
@@ -655,7 +656,7 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 			time += slice;
 
 			step = int(std::round(
-			   easeOutExpo(time, cur_step, diff, animation_s))
+			    easeOutExpo(time, cur_step, diff, animation_s))
 			);
 
 			if (step != prev_step) {
