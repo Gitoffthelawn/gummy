@@ -177,7 +177,7 @@ void Xorg::setGamma()
 		);
 }
 
-void Xorg::applyGammaRamp(Output &o, int brt_step, int temp_step)
+void Xorg::applyGammaRamp(Output &o, const int brt_step, const int temp_step)
 {
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.

@@ -27,34 +27,31 @@
 #include <condition_variable>
 #include <sdbus-c++/ProxyInterfaces.h>
 
-class Monitor;
-
-class ScreenCtl
+class TempCtl
 {
 public:
-    ScreenCtl(Xorg *server);
-    ~ScreenCtl();
-    void applyOptions(const std::string&);
+    TempCtl(Xorg*);
+    ~TempCtl();
+    int getCurrentStep();
+    void notify(bool quit = false);
 private:
-    void notifyTemp();
-    void notifyMonitor(int scr_idx);
-    int getAutoTempStep();
+    std::unique_ptr<std::thread> _thr;
+    std::condition_variable _temp_cv;
+    int  _current_step = 0;
+    bool _quit = false;
+    bool _force_change;
+    std::time_t _cur_time;
+    std::time_t _sunrise_time;
+    std::time_t _sunset_time;
 
-    Xorg *m_server;
-    std::vector<Device> m_devices;
-    std::vector<std::thread> m_threads;
-    std::vector<Monitor> m_monitors;
-    std::condition_variable m_gamma_refresh_cv;
-    std::condition_variable m_temp_cv;
-    int m_auto_temp_step;
-    bool m_quit = false;
-    bool m_force_temp_change;
-
-    void reapplyGamma();
-    void adjustTemperature();
-
-    std::unique_ptr<sdbus::IProxy> m_dbus_proxy;
-    bool listenWakeupSignal();
+    /**
+     * Temperature is adjusted in two steps.
+     * The first one is for quickly catching up to the proper temperature when:
+     * - time is checked sometime after the start time
+     * - the system wakes up
+     * - temperature settings change */
+    void adjust(Xorg*);
+    void updateInterval();
 };
 
 class Monitor
@@ -68,18 +65,43 @@ public:
     void notify();
     ~Monitor();
 private:
-    Xorg *m_server;
-    Device *m_device;
-    const int m_scr_idx;
-    std::unique_ptr<std::thread> m_ss_thr;
-    std::condition_variable m_ss_cv;
-    std::mutex m_brt_mtx;
-    int m_ss_brt;
-    bool m_brt_needs_change;
-    bool m_quit = false;
+    Xorg *_server;
+    Device *_device;
+    const int _scr_idx;
+    std::unique_ptr<std::thread> _thr;
+    std::condition_variable _ss_cv;
+    std::mutex _brt_mtx;
+    int _ss_brt;
+    bool _brt_needs_change;
+    bool _quit = false;
 
     void capture();
     void adjustBrightness(std::condition_variable&);
+};
+
+class ScreenCtl
+{
+public:
+    ScreenCtl(Xorg *server);
+    ~ScreenCtl();
+    void applyOptions(const std::string&);
+private:
+    void notifyMonitor(int scr_idx);
+    int getAutoTempStep();
+
+    Xorg *_server;
+    std::vector<Device> _devices;
+    std::vector<std::thread> _threads;
+    std::vector<Monitor> _monitors;
+    std::condition_variable _gamma_refresh_cv;
+    TempCtl _temp_ctl;
+    bool _quit = false;
+
+    void reapplyGamma();
+    void adjustTemperature();
+
+    std::unique_ptr<sdbus::IProxy> _dbus_proxy;
+    void registerWakeupSig();
 };
 
 #endif // SCREENCTL_H
