@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 
-int    calcBrightness(uint8_t *buf, uint64_t buf_sz, int bytes_per_pixel, int stride);
+int    calcBrightness(uint8_t *buf, uint64_t buf_sz, int bytes_per_pixel = 4, int stride = 1024);
 double lerp(double x, double a, double b);
 double normalize(double x, double a, double b);
 double remap(double x, double a, double b, double ay, double by);
