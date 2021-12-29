@@ -35,14 +35,16 @@ public:
 	int getCurrentStep();
 	void notify(bool quit = false);
 private:
+	bool _quit = false;
+
 	std::unique_ptr<std::thread> _thr;
 	std::condition_variable _temp_cv;
 	int  _current_step = 0;
-	bool _quit = false;
 	bool _force_change;
 	std::time_t _cur_time;
 	std::time_t _sunrise_time;
 	std::time_t _sunset_time;
+	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
 
 	/**
 	 * Temperature is adjusted in two steps.
@@ -50,8 +52,9 @@ private:
 	 * - time is checked sometime after the start time
 	 * - the system wakes up
 	 * - temperature settings change */
-	void adjust(Xorg*);
-	void updateInterval();
+	void adjustTemp(Xorg*);
+	void updateTime();
+	void checkWakeup();
 };
 
 class Monitor
@@ -62,18 +65,21 @@ public:
 	bool hasBacklight();
 	void setBacklight(int perc);
 
-	void notify();
+	void notify(bool force = false);
 	~Monitor();
 private:
+	bool _quit = false;
+	bool _force;
+
 	Xorg *_server;
 	Device *_device;
 	const int _scr_idx;
 	std::unique_ptr<std::thread> _thr;
 	std::condition_variable _ss_cv;
 	std::mutex _brt_mtx;
+	int _current_step;
 	int _ss_brt;
 	bool _brt_needs_change;
-	bool _quit = false;
 
 	void capture();
 	void adjustBrightness(std::condition_variable&);
@@ -86,22 +92,37 @@ public:
 	~ScreenCtl();
 	void applyOptions(const std::string&);
 private:
-	void notifyMonitor(int scr_idx);
-	int getAutoTempStep();
-
-	Xorg *_server;
-	std::vector<Device> _devices;
-	std::vector<std::thread> _threads;
-	std::vector<Monitor> _monitors;
-	std::condition_variable _gamma_refresh_cv;
-	TempCtl _temp_ctl;
 	bool _quit = false;
 
-	void reapplyGamma();
-	void adjustTemperature();
+	Xorg *_server;
+	TempCtl _temp_ctl;
 
-	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
-	void registerWakeupSig();
+	std::vector<Device>  _devices;
+	std::vector<Monitor> _monitors;
+
+	std::unique_ptr<std::thread> _gamma_refresh_thr;
+	std::condition_variable _gamma_refresh_cv;
+	void reapplyGamma();
+};
+
+struct Options
+{
+    Options(const std::string &in);
+	int scr_no               = -1;
+	int brt_perc             = -1;
+	int brt_auto             = -1;
+	int brt_auto_min         = -1;
+	int brt_auto_max         = -1;
+	int brt_auto_offset      = -1;
+	int brt_auto_speed       = -1;
+	int screenshot_rate_ms   = -1;
+	int temp_auto            = -1;
+	int temp_k               = -1;
+	int temp_day_k           = -1;
+	int temp_night_k         = -1;
+	int temp_adaptation_time = -1;
+	std::string sunrise_time;
+	std::string sunset_time;
 };
 
 #endif // SCREENCTL_H
