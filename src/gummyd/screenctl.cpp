@@ -169,44 +169,43 @@ void TempCtl::adjustTemp(Xorg *server)
 		}
 
 		const int FPS      = cfg["temp_auto_fps"];
-		const int diff     = target_step - _current_step;
 		const double slice = 1. / FPS;
 
-		double time   = 0;
-		int step      = -1;
+		double time = 0;
+		const int start_step = _current_step;
+		const int diff = target_step - start_step;
+
 		int prev_step = -1;
 
-		while (step != target_step) {
+		while (_current_step != target_step) {
 
 			if (_force_change || !cfg["temp_auto"].get<bool>() || _quit)
 				break;
 
 			time += slice;
 
-			step = int(easeInOutQuad(time, _current_step, diff, animation_s));
+			_current_step = int(easeInOutQuad(time, start_step, diff, animation_s));
 
-			if (step != prev_step) {
+			if (_current_step != prev_step) {
 
 				for (int i = 0; i < server->screenCount(); ++i) {
 
 					if (cfg["screens"][i]["temp_auto"].get<bool>()) {
 
-						cfg["screens"][i]["temp_step"] = step;
+						cfg["screens"][i]["temp_step"] = _current_step;
 						server->setGamma(
 						    i,
 						    cfg["screens"][i]["brt_step"],
-						    step
+						    _current_step
 						);
 					}
 				}
 			}
 
-			prev_step = step;
+			prev_step = _current_step;
 
 			sleep_for(milliseconds(1000 / FPS));
 		}
-
-		_current_step = step;
 		first_step = false;
 	}
 
