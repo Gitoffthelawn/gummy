@@ -32,18 +32,19 @@ class TempCtl
 public:
     TempCtl(Xorg*);
 	~TempCtl();
-	int getCurrentStep();
-	void notify(bool quit = false);
+	int  getCurrentStep() const;
+	void notify();
+	void quit();
 private:
-	bool _quit = false;
-
-	std::unique_ptr<std::thread> _thr;
-	std::condition_variable _temp_cv;
-	int  _current_step = 0;
-	bool _force_change;
+	bool _quit;
+	bool _force;
+	int  _current_step;
 	std::time_t _cur_time;
 	std::time_t _sunrise_time;
 	std::time_t _sunset_time;
+
+	std::condition_variable _temp_cv;
+	std::unique_ptr<std::thread> _thr;
 	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
 
 	/**
@@ -53,33 +54,34 @@ private:
 	 * - the system wakes up
 	 * - temperature settings change */
 	void adjustTemp(Xorg*);
-	void updateTime();
+	void updateTimestamps();
 	void checkWakeup();
 };
 
 class Monitor
 {
 public:
-    Monitor(Monitor&&);
-	Monitor(Xorg* server, Device *device, int scr_idx);
-	bool hasBacklight();
-	void setBacklight(int perc);
-
-	void notify(bool force = false);
+    Monitor(Xorg* server, Device *device, const int id);
+	Monitor(Monitor&&);
 	~Monitor();
+
+	bool hasBacklight() const;
+	void setBacklight(const int perc);
+	void notify();
+	void quit();
 private:
-	bool _quit = false;
+	const int _id;
+	bool _quit;
 	bool _force;
+	int  _current_step;
+	int  _ss_brt;
+	bool _brt_needs_change;
 
 	Xorg *_server;
 	Device *_device;
-	const int _scr_idx;
-	std::unique_ptr<std::thread> _thr;
-	std::condition_variable _ss_cv;
 	std::mutex _brt_mtx;
-	int _current_step;
-	int _ss_brt;
-	bool _brt_needs_change;
+	std::condition_variable _ss_cv;
+	std::unique_ptr<std::thread> _thr;
 
 	void capture();
 	void adjustBrightness(std::condition_variable&);
@@ -92,16 +94,14 @@ public:
 	~ScreenCtl();
 	void applyOptions(const std::string&);
 private:
-	bool _quit = false;
-
+	bool _quit;
 	Xorg *_server;
 	TempCtl _temp_ctl;
-
 	std::vector<Device>  _devices;
 	std::vector<Monitor> _monitors;
 
-	std::unique_ptr<std::thread> _gamma_refresh_thr;
 	std::condition_variable _gamma_refresh_cv;
+	std::unique_ptr<std::thread> _gamma_refresh_thr;
 	void reapplyGamma();
 };
 

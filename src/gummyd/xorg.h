@@ -51,24 +51,26 @@ struct XCB
 	xcb_randr_crtc_t *randr_crtcs;
 };
 
-struct Output
+class Output
 {
+public:
 	Output(const XLib &xlib,
 	       const xcb_randr_crtc_t c,
 	       xcb_randr_get_crtc_info_reply_t *i);
 	~Output();
 
-	int getImageBrightness(const XLib &xlib);
-
 	xcb_randr_crtc_t crtc;
-	xcb_randr_get_crtc_info_reply_t *info;
-	std::vector<uint16_t> ramps;
 
-	XShmSegmentInfo shminfo;
-	XImage          *image;
-	uint64_t        image_len;
-
-	int ramp_sz;
+	void setRampSize(const int);
+	int  getImageBrightness(const XLib &xlib);
+	void applyGammaRamp(const XCB &xcb, const int brt_step, const int temp_step);
+private:
+	int _ramp_sz;
+	std::vector<uint16_t> _ramps;
+	xcb_randr_get_crtc_info_reply_t *_info;
+	XShmSegmentInfo _shminfo;
+	XImage   *_image;
+	uint64_t _image_len;
 };
 
 class Xorg
@@ -80,9 +82,6 @@ public:
 	void setGamma();
 	int  getScreenBrightness(const int scr_idx);
 private:
-	void initOutputs();
-	void applyGammaRamp(Output &, const int brt_step, const int temp_step);
-
 	XLib _xlib;
 	XCB  _xcb;
 	std::vector<Output> _outputs;

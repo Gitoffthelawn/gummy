@@ -25,7 +25,10 @@
 #include <syslog.h>
 
 TempCtl::TempCtl(Xorg *xorg)
- : _thr(std::make_unique<std::thread>([&] { adjustTemp(xorg); }))
+    : _quit(false),
+      _force(false),
+      _current_step(0),
+      _thr(std::make_unique<std::thread>([&] { adjustTemp(xorg); }))
 {
 	checkWakeup();
 
@@ -42,18 +45,23 @@ TempCtl::TempCtl(Xorg *xorg)
 
 TempCtl::~TempCtl()
 {
-	notify(true);
+	quit();
 	_thr->join();
 }
 
-void TempCtl::notify(bool quit)
+void TempCtl::notify()
 {
-	_force_change = true;
-	_quit = quit;
+	_force = true;
 	_temp_cv.notify_one();
 }
 
-int TempCtl::getCurrentStep()
+void TempCtl::quit()
+{
+	_quit = true;
+	_temp_cv.notify_one();
+}
+
+int TempCtl::getCurrentStep() const
 {
 	return _current_step;
 }
@@ -63,8 +71,6 @@ void TempCtl::adjustTemp(Xorg *server)
 	using namespace std::this_thread;
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
-
-	updateTime();
 
 	bool needs_change = cfg["temp_auto"].get<bool>();
 
@@ -82,7 +88,7 @@ void TempCtl::adjustTemp(Xorg *server)
 			}
 
 			if (_quit)
-				break;
+				return;
 
 			if (!cfg["temp_auto"].get<bool>())
 				continue;
@@ -96,23 +102,23 @@ void TempCtl::adjustTemp(Xorg *server)
 		}
 	});
 
-	_current_step = 0;
 	bool first_step = true;
+	updateTimestamps();
 
 	while (true) {
 		{
 			std::unique_lock<std::mutex> lock(temp_mtx);
 
 			_temp_cv.wait(lock, [&] {
-				return needs_change || !first_step || _force_change || _quit;
+				return needs_change || !first_step || _force || _quit;
 			});
 
 			if (_quit)
 				break;
 
-			if (_force_change) {
-				updateTime();
-				_force_change = false;
+			if (_force) {
+				updateTimestamps();
+				_force = false;
 				first_step = true;
 			}
 
@@ -126,7 +132,7 @@ void TempCtl::adjustTemp(Xorg *server)
 
 		_cur_time = std::time(nullptr);
 
-		bool daytime = _cur_time >= _sunrise_time && _cur_time < _sunset_time;
+		const bool daytime = _cur_time >= _sunrise_time && _cur_time < _sunset_time;
 		int target_temp;
 		long tmp;
 
@@ -148,11 +154,13 @@ void TempCtl::adjustTemp(Xorg *server)
 		if (first_step) {
 			if (daytime) {
 				target_temp = remap(
-				    time_since_start_s, 0, adaptation_time_s, cfg["temp_auto_low"], cfg["temp_auto_high"]
+				    time_since_start_s, 0, adaptation_time_s,
+				    cfg["temp_auto_low"], cfg["temp_auto_high"]
 				);
 			} else {
 				target_temp = remap(
-				    time_since_start_s, 0, adaptation_time_s, cfg["temp_auto_high"], cfg["temp_auto_low"]
+				    time_since_start_s, 0, adaptation_time_s,
+				    cfg["temp_auto_high"], cfg["temp_auto_low"]
 				);
 			}
 		} else {
@@ -161,7 +169,7 @@ void TempCtl::adjustTemp(Xorg *server)
 				animation_s = 2;
 		}
 
-		int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
+		const int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
 
 		if (_current_step == target_step) {
 			first_step = true;
@@ -179,7 +187,7 @@ void TempCtl::adjustTemp(Xorg *server)
 
 		while (_current_step != target_step) {
 
-			if (_force_change || !cfg["temp_auto"].get<bool>() || _quit)
+			if (_force || !cfg["temp_auto"].get<bool>() || _quit)
 				break;
 
 			time += slice;
@@ -213,7 +221,7 @@ void TempCtl::adjustTemp(Xorg *server)
 	clock.join();
 }
 
-void TempCtl::updateTime()
+void TempCtl::updateTimestamps()
 {
 	// Get current timestamp
 	_cur_time = std::time(nullptr);
@@ -267,7 +275,8 @@ void TempCtl::checkWakeup()
 }
 
 ScreenCtl::ScreenCtl(Xorg *server)
-    : _server(server),
+    : _quit(false),
+      _server(server),
       _temp_ctl(server),
       _devices(Sysfs::getDevices()),
       _gamma_refresh_thr(std::make_unique<std::thread>([this] { reapplyGamma(); }))
@@ -284,8 +293,8 @@ ScreenCtl::ScreenCtl(Xorg *server)
 
 ScreenCtl::~ScreenCtl()
 {
+	_temp_ctl.quit();
 	_quit = true;
-	_temp_ctl.notify(true);
 	_gamma_refresh_cv.notify_one();
 	_gamma_refresh_thr->join();
 }
@@ -385,7 +394,7 @@ void ScreenCtl::applyOptions(const std::string &json)
 
 		if (opts.brt_auto != -1) {
 			cfg["screens"][i]["brt_auto"] = bool(opts.brt_auto);
-			_monitors[i].notify(true);
+			_monitors[i].notify();
 		}
 
 		if (opts.brt_perc != -1) {
@@ -438,22 +447,22 @@ void ScreenCtl::applyOptions(const std::string &json)
 	}
 
 	if (notify_temp)
-		_temp_ctl.notify(false);
+		_temp_ctl.notify();
 }
 
-Monitor::Monitor(Xorg* server, Device* device, int scr_idx)
-    : _server(server),
+Monitor::Monitor(Xorg* server, Device* device, const int id)
+    : _id(id),
+      _server(server),
       _device(device),
-      _scr_idx(scr_idx),
       _thr(std::make_unique<std::thread>([this] { capture(); }))
 {
-
 }
 
 // This won't ever be called as the storage is static
 Monitor::Monitor(Monitor &&o)
-    : _server(o._server),
-      _scr_idx(o._scr_idx)
+    :  _id(o._id),
+       _server(o._server),
+       _device(o._device)
 {
 	_thr.swap(o._thr);
 }
@@ -465,7 +474,7 @@ Monitor::~Monitor()
 	_thr->join();
 }
 
-bool Monitor::hasBacklight()
+bool Monitor::hasBacklight() const
 {
 	return _device != nullptr;
 }
@@ -475,9 +484,9 @@ void Monitor::setBacklight(int perc)
 	return _device->setBacklight(perc * 255 / 100);
 }
 
-void Monitor::notify(bool force)
+void Monitor::notify()
 {
-	_force = force;
+	_force = true;
 	_ss_cv.notify_one();
 }
 
@@ -501,25 +510,25 @@ void Monitor::capture()
 		{
 			std::unique_lock lock(mtx);
 			_ss_cv.wait(lock, [&] {
-				return cfg["screens"][_scr_idx]["brt_auto"].get<bool>() || _quit;
+				return cfg["screens"][_id]["brt_auto"].get<bool>() || _quit;
 			});
 		}
 
 		if (_quit)
 			break;
 
-		if (cfg["screens"][_scr_idx]["brt_auto"].get<bool>())
+		if (cfg["screens"][_id]["brt_auto"].get<bool>())
 			force = true;
 		else
 			continue;
 
-		while (cfg["screens"][_scr_idx]["brt_auto"].get<bool>() && !_quit) {
+		while (cfg["screens"][_id]["brt_auto"].get<bool>() && !_quit) {
 
-			const int ss_brt = _server->getScreenBrightness(_scr_idx);
+			const int ss_brt = _server->getScreenBrightness(_id);
 
 			img_delta += abs(prev_ss_brt - ss_brt);
 
-			if (img_delta > cfg["screens"][_scr_idx]["brt_auto_threshold"].get<int>() || force) {
+			if (img_delta > cfg["screens"][_id]["brt_auto_threshold"].get<int>() || force) {
 
 				img_delta = 0;
 				force = false;
@@ -533,17 +542,17 @@ void Monitor::capture()
 				brt_cv.notify_one();
 			}
 
-			if (   cfg["screens"][_scr_idx]["brt_auto_min"] != prev_min
-			|| cfg["screens"][_scr_idx]["brt_auto_max"] != prev_max
-			|| cfg["screens"][_scr_idx]["brt_auto_offset"] != prev_offset)
+			if (   cfg["screens"][_id]["brt_auto_min"] != prev_min
+			|| cfg["screens"][_id]["brt_auto_max"] != prev_max
+			|| cfg["screens"][_id]["brt_auto_offset"] != prev_offset)
 				force = true;
 
 			prev_ss_brt = ss_brt;
-			prev_min    = cfg["screens"][_scr_idx]["brt_auto_min"];
-			prev_max    = cfg["screens"][_scr_idx]["brt_auto_max"];
-			prev_offset = cfg["screens"][_scr_idx]["brt_auto_offset"];
+			prev_min    = cfg["screens"][_id]["brt_auto_min"];
+			prev_max    = cfg["screens"][_id]["brt_auto_max"];
+			prev_offset = cfg["screens"][_id]["brt_auto_offset"];
 
-			sleep_for(milliseconds(cfg["screens"][_scr_idx]["brt_auto_polling_rate"].get<int>()));
+			sleep_for(milliseconds(cfg["screens"][_id]["brt_auto_polling_rate"].get<int>()));
 		}
 	}
 
@@ -565,7 +574,7 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 	int cur_step = brt_steps_max;
 
 	if (!_device) {
-		_server->setGamma(_scr_idx, brt_steps_max, cfg["screens"][_scr_idx]["temp_step"]);
+		_server->setGamma(_id, brt_steps_max, cfg["screens"][_id]["temp_step"]);
 	}
 
 	while (true) {
@@ -588,14 +597,14 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		const int ss_step = ss_brt * brt_steps_max / 255;
 
 		// Offset relative to the max brightness.
-		const int offset = cfg["screens"][_scr_idx]["brt_auto_offset"].get<int>()
+		const int offset = cfg["screens"][_id]["brt_auto_offset"].get<int>()
 		        * brt_steps_max
-		        / cfg["screens"][_scr_idx]["brt_auto_max"].get<int>();
+		        / cfg["screens"][_id]["brt_auto_max"].get<int>();
 
 		const int target_step = std::clamp(
 		    brt_steps_max - ss_step + offset,
-		    cfg["screens"][_scr_idx]["brt_auto_min"].get<int>(),
-		    cfg["screens"][_scr_idx]["brt_auto_max"].get<int>()
+		    cfg["screens"][_id]["brt_auto_min"].get<int>(),
+		    cfg["screens"][_id]["brt_auto_max"].get<int>()
 		);
 
 		if (cur_step == target_step && !_force) {
@@ -614,14 +623,14 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 		double time = 0;
 		const int start_step = cur_step;
 		const int diff       = target_step - start_step;
-		const double animation_s = cfg["screens"][_scr_idx]["brt_auto_speed"].get<double>() / 1000;
+		const double animation_s = cfg["screens"][_id]["brt_auto_speed"].get<double>() / 1000;
 
 		int prev_step = -1;
 
 		while (cur_step != target_step || _force) {
 			_force = false;
 
-			if (_brt_needs_change || !cfg["screens"][_scr_idx]["brt_auto"].get<bool>() || _quit)
+			if (_brt_needs_change || !cfg["screens"][_id]["brt_auto"].get<bool>() || _quit)
 				break;
 
 			time += slice;
@@ -632,12 +641,12 @@ void Monitor::adjustBrightness(std::condition_variable &brt_cv)
 
 			if (cur_step != prev_step) {
 
-				cfg["screens"][_scr_idx]["brt_step"] = cur_step;
+				cfg["screens"][_id]["brt_step"] = cur_step;
 
 				_server->setGamma(
-				    _scr_idx,
+				    _id,
 				    cur_step,
-				    cfg["screens"][_scr_idx]["temp_step"]
+				    cfg["screens"][_id]["temp_step"]
 				);
 			}
 
