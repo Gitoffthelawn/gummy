@@ -452,6 +452,7 @@ void ScreenCtl::applyOptions(const std::string &json)
 
 Monitor::Monitor(Xorg* server, Device* device, const int id)
     : _id(id),
+      _quit(false),
       _server(server),
       _device(device),
       _thr(std::make_unique<std::thread>([this] { capture(); }))
@@ -497,7 +498,6 @@ void Monitor::capture()
 
 	std::condition_variable brt_cv;
 	std::thread brt_thr([&] { adjustBrightness(brt_cv); });
-	std::mutex  mtx;
 
 	int img_delta = 0;
 	bool force = false;
@@ -505,6 +505,8 @@ void Monitor::capture()
 	    prev_min    = 0,
 	    prev_max    = 0,
 	    prev_offset = 0;
+
+	std::mutex mtx;
 
 	while (true) {
 		{
