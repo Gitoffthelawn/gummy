@@ -23,105 +23,154 @@
 #include <iostream>
 #include <syslog.h>
 
-json getDefault()
+Config cfg;
+
+Config::Config()
+    : _path(path()),
+      brt_auto_fps(60),
+      temp_auto(false),
+      temp_auto_fps(45),
+      temp_auto_speed(60),
+      temp_auto_high(temp_k_min),
+      temp_auto_low(3400),
+      temp_auto_sunrise("06:00"),
+      temp_auto_sunset("16:00")
 {
-	json ret;
-	config::addScreenEntries(ret, 1);
+}
 
-	ret["brt_auto_fps"]      = 60;
+ScreenConfig::ScreenConfig()
+    : brt_auto(false),
+      brt_auto_min(brt_steps_max / 2),
+      brt_auto_max(brt_steps_max),
+      brt_auto_offset(0),
+      brt_auto_speed(1000),
+      brt_auto_threshold(8),
+      brt_auto_polling_rate(1000),
+      brt_step(brt_steps_max),
+      temp_auto(false),
+      temp_step(0)
+{
+}
 
-	ret["temp_auto"]         = false;
-	ret["temp_auto_fps"]     = 45;
-	ret["temp_auto_speed"]   = 60; // min
-	ret["temp_auto_sunrise"] = "06:00";
-	ret["temp_auto_sunset"]  = "16:00";
-	ret["temp_auto_high"]    = temp_k_min;
-	ret["temp_auto_low"]     = 3400;
+void Config::init(const int detected_screens)
+{
+	cfg.read();
 
-	ret["log_level"] = 3;
+	int new_screens = detected_screens - cfg.screens.size();
+	while (new_screens--)
+		screens.emplace_back(ScreenConfig());
+
+	cfg.write();
+}
+
+void Config::read()
+{
+	std::ifstream fs(_path, std::fstream::in | std::fstream::app);
+\
+	if (fs.fail()) {
+		syslog(LOG_ERR, "Unable to open config\n");
+		return;
+	}
+
+	fs.seekg(0, std::ios::end);
+
+	if (fs.tellg() == 0) {
+		Config::write();
+		return;
+	}
+
+	fs.seekg(0);
+
+	json j;
+
+	try {
+		fs >> j;
+	} catch (json::exception &e) {
+		syslog(LOG_ERR, "%s\n", e.what());
+		Config::write();
+		return;
+	}
+
+	from_json(j);
+}
+
+void Config::write()
+{
+	std::ofstream fs(_path);
+
+	if (fs.fail()) {
+		syslog(LOG_ERR, "Unable to open config\n");
+		return;
+	}
+
+	try {
+		fs << std::setw(4) << cfg.to_json();
+	} catch (json::exception &e) {
+		syslog(LOG_ERR, "%s\n", e.what());
+		return;
+	}
+}
+
+void Config::from_json(const json &in)
+{
+	brt_auto_fps      = in["brt_auto_fps"];
+	temp_auto         = in["temp_auto"];
+	temp_auto_fps     = in["temp_auto_fps"];
+	temp_auto_speed   = in["temp_auto_speed"];
+	temp_auto_sunrise = in["temp_auto_sunrise"];
+	temp_auto_sunset  = in["temp_auto_sunset"];
+	temp_auto_high    = in["temp_auto_high"];
+	temp_auto_low     = in["temp_auto_low"];
+	screens.clear();
+	for (size_t i = 0; i < in["screens"].size(); ++i) {
+		screens.emplace_back(
+		    in["screens"][i]["brt_auto"],
+		    in["screens"][i]["brt_auto_min"],
+		    in["screens"][i]["brt_auto_max"],
+		    in["screens"][i]["brt_auto_offset"],
+		    in["screens"][i]["brt_auto_speed"],
+		    in["screens"][i]["brt_auto_threshold"],
+		    in["screens"][i]["brt_auto_polling_rate"],
+		    in["screens"][i]["brt_step"],
+		    in["screens"][i]["temp_auto"],
+		    in["screens"][i]["temp_step"]
+		);
+	}
+}
+
+json Config::to_json()
+{
+	json ret({
+	    {"brt_auto_fps", brt_auto_fps},
+	    {"temp_auto", temp_auto},
+	    {"temp_auto_fps", temp_auto_fps},
+	    {"temp_auto_speed", temp_auto_speed},
+	    {"temp_auto_sunrise", temp_auto_sunrise},
+	    {"temp_auto_sunset", temp_auto_sunset},
+	    {"temp_auto_high", temp_auto_high},
+	    {"temp_auto_low", temp_auto_low},
+	    {"screens", json::array()}
+	});
+
+	for (const auto &s : screens) {
+		ret["screens"].emplace_back(json({
+		    {"brt_auto", s.brt_auto},
+		    {"brt_auto_threshold", s.brt_auto_threshold},
+		    {"brt_auto_polling_rate", s.brt_auto_polling_rate},
+		    {"brt_auto_speed", s.brt_auto_speed},
+		    {"brt_auto_min", s.brt_auto_min},
+		    {"brt_auto_max", s.brt_auto_max},
+		    {"brt_auto_offset", s.brt_auto_offset},
+		    {"brt_step", s.brt_step},
+		    {"temp_auto", s.temp_auto},
+		    {"temp_step", s.temp_step},
+		}));
+	}
 
 	return ret;
 }
 
-void config::addScreenEntries(json &config, int n)
-{
-	json screen = {
-	    {"brt_auto", false},
-	    {"brt_auto_threshold", 8},
-	    {"brt_auto_polling_rate", 1000}, // ms
-	    {"brt_auto_speed", 1000}, // ms
-	    {"brt_auto_min", brt_steps_max / 2},
-	    {"brt_auto_max", brt_steps_max},
-	    {"brt_auto_offset", 0},
-	    {"brt_step", brt_steps_max},
-	    {"temp_auto", false},
-	    {"temp_step", 0},
-	};
-
-	if (!config.contains("screens"))
-		config["screens"] = json::array();
-
-	while (n--)
-		config["screens"].push_back(screen);
-}
-
-json cfg = getDefault();
-
-void config::read()
-{
-	const auto path = config::getPath();
-
-	std::ifstream file(path, std::fstream::in | std::fstream::app);
-\
-	if (!file.good() || !file.is_open()) {
-		syslog(LOG_USER | LOG_ERR, "Unable to open config");
-		return;
-	}
-
-	file.seekg(0, std::ios::end);
-
-	if (file.tellg() == 0) {
-		config::write();
-		return;
-	}
-
-	file.seekg(0);
-
-	json tmp;
-
-	try {
-		file >> tmp;
-	} catch (json::exception &e) {
-
-		syslog(LOG_USER | LOG_ERR, "%s", e.what());
-		cfg = getDefault();
-		config::write();
-		return;
-	}
-
-	cfg.update(tmp);
-}
-
-void config::write()
-{
-	const auto path = config::getPath();
-
-	std::ofstream file(path, std::ofstream::out);
-
-	if (!file.good() || !file.is_open()) {
-		syslog(LOG_USER | LOG_ERR, "Unable to open config");
-		return;
-	}
-
-	try {
-		file << std::setw(4) << cfg;
-	} catch (json::exception &e) {
-		syslog(LOG_USER | LOG_ERR, "%s", e.what());
-		return;
-	}
-}
-
-std::string config::getPath()
+std::string Config::path()
 {
 	const char *home   = getenv("XDG_CONFIG_HOME");
 	const char *format = "/";
@@ -131,7 +180,31 @@ std::string config::getPath()
 		home = getenv("HOME");
 	}
 
-	std::stringstream ss;
+	std::ostringstream ss;
 	ss << home << format << config_name;
 	return ss.str();
+}
+
+ScreenConfig::ScreenConfig(
+    bool brt_auto,
+    int brt_auto_min,
+    int brt_auto_max,
+    int brt_auto_speed,
+    int brt_auto_threshold,
+    int brt_auto_offset,
+    int brt_auto_polling_rate,
+    int brt_step,
+    bool temp_auto,
+    int temp_step
+    ) : brt_auto(brt_auto),
+    brt_auto_min(brt_auto_min),
+    brt_auto_max(brt_auto_max),
+    brt_auto_offset(brt_auto_offset),
+    brt_auto_speed(brt_auto_speed),
+    brt_auto_threshold(brt_auto_threshold),
+    brt_auto_polling_rate(brt_auto_polling_rate),
+    brt_step(brt_step),
+    temp_auto(temp_auto),
+    temp_step(temp_step)
+{
 }

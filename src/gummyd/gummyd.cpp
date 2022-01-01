@@ -56,7 +56,7 @@ int readMessages(ScreenCtl &screenctl)
 
 		screenctl.applyOptions(s);
 
-		config::write();
+		cfg.write();
 	}
 
 	return 0;
@@ -76,15 +76,9 @@ int main(int argc, char **argv)
 		std::exit(1);
 	}
 
-	config::read();
-
 	Xorg xorg;
 
-	int new_screens = xorg.screenCount() - cfg["screens"].size();
-	if (new_screens > 0) {
-		config::addScreenEntries(cfg, new_screens);
-		config::write();
-	}
+	cfg.init(xorg.screenCount());
 
 	ScreenCtl screenctl(&xorg);
 

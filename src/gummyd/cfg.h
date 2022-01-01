@@ -1,4 +1,4 @@
-/**
+﻿/**
 * gummy
 * Copyright (C) 2022  Francesco Fusco
 *
@@ -20,15 +20,59 @@
 #define CFG_H
 
 #include "json.hpp"
+#include "../common/defs.h"
 
-using  json = nlohmann::json;
-extern json cfg;
+using json = nlohmann::json;
 
-namespace config {
-std::string getPath();
-void addScreenEntries(json&, int);
-void read();
-void write();
-}
+struct ScreenConfig
+{
+    ScreenConfig();
+	ScreenConfig(
+	    bool brt_auto,
+	    int brt_auto_threshold,
+	    int brt_auto_speed,
+	    int brt_auto_min,
+	    int brt_auto_max,
+	    int brt_auto_offset,
+	    int brt_auto_polling_rate,
+	    int brt_step,
+	    bool temp_auto,
+	    int temp_step
+	);
+	bool brt_auto;
+	int brt_auto_min;
+	int brt_auto_max;
+	int brt_auto_offset;
+	int brt_auto_speed; // ms
+	int brt_auto_threshold;
+	int brt_auto_polling_rate; // ms
+	int brt_step;
+	bool temp_auto;
+	int temp_step;
+};
+
+struct Config
+{
+    Config();
+	const std::string _path;
+	int brt_auto_fps;
+	bool temp_auto;
+	int temp_auto_fps;
+	int temp_auto_speed;
+	int temp_auto_high;
+	int temp_auto_low;
+	std::string temp_auto_sunrise;
+	std::string temp_auto_sunset;
+	std::vector<ScreenConfig> screens;
+
+	std::string path();
+	void init(const int);
+	void read();
+	void from_json(const json&);
+	void write();
+	json to_json();
+};
+
+extern Config cfg;
 
 #endif // CFG_H

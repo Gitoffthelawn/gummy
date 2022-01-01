@@ -166,8 +166,8 @@ void Xorg::setGamma()
 	for (size_t i = 0; i < _outputs.size(); ++i)
 		_outputs[i].applyGammaRamp(
 		    _xcb,
-		    cfg["screens"][i]["brt_step"],
-		    cfg["screens"][i]["temp_step"]
+		    cfg.screens[i].brt_step,
+		    cfg.screens[i].temp_step
 		);
 }
 
