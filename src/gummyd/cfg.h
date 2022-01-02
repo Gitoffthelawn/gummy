@@ -29,11 +29,11 @@ struct ScreenConfig
     ScreenConfig();
 	ScreenConfig(
 	    bool brt_auto,
-	    int brt_auto_threshold,
-	    int brt_auto_speed,
 	    int brt_auto_min,
 	    int brt_auto_max,
 	    int brt_auto_offset,
+	    int brt_auto_speed,
+	    int brt_auto_threshold,
 	    int brt_auto_polling_rate,
 	    int brt_step,
 	    bool temp_auto,
