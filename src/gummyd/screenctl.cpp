@@ -218,11 +218,11 @@ void scrctl::Temp::temp_loop(Xorg &xorg)
 
 			time += slice;
 
-			_current_step = int(easeInOutQuad(time, start_step, diff, animation_s));
+			_current_step = int(ease_in_out_quad(time, start_step, diff, animation_s));
 
 			if (_current_step != prev_step) {
 
-				for (int i = 0; i < xorg.scr_count(); ++i) {
+				for (size_t i = 0; i < xorg.scr_count(); ++i) {
 
 					if (cfg.screens[i].temp_auto) {
 
@@ -501,7 +501,7 @@ void scrctl::Monitor::brt_loop(std::condition_variable &brt_cv)
 			time += slice;
 
 			cur_step = int(std::round(
-			    easeOutExpo(time, start_step, diff, animation_s))
+			    ease_out_expo(time, start_step, diff, animation_s))
 			);
 
 			if (cur_step != prev_step) {

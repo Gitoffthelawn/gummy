@@ -116,7 +116,7 @@ int Xorg::Output::get_image_brightness(const XLib &xlib) const
 {
 	XShmGetImage(xlib.dsp, xlib.root, _image, _info->x, _info->y, AllPlanes);
 
-	return calcBrightness(
+	return calc_brightness(
 	    reinterpret_cast<uint8_t*>(_image->data),
 	    _image_len
 	);
@@ -172,9 +172,9 @@ void Xorg::Output::apply_gamma_ramp(const XCB &xcb, const int brt_step, const in
 	uint16_t *g = &_ramps[1 * _ramp_sz];
 	uint16_t *b = &_ramps[2 * _ramp_sz];
 
-	const double r_mult = stepToKelvin(temp_step, 0),
-	             g_mult = stepToKelvin(temp_step, 1),
-	             b_mult = stepToKelvin(temp_step, 2);
+	const double r_mult = step_to_kelvin(temp_step, 0),
+	             g_mult = step_to_kelvin(temp_step, 1),
+	             b_mult = step_to_kelvin(temp_step, 2);
 
 	const int    ramp_mult = (UINT16_MAX + 1) / _ramp_sz;
 	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
