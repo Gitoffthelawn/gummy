@@ -24,35 +24,35 @@
 
 using json = nlohmann::json;
 
-struct ScreenConfig
-{
-    ScreenConfig();
-	ScreenConfig(
-	    bool brt_auto,
-	    int brt_auto_min,
-	    int brt_auto_max,
-	    int brt_auto_offset,
-	    int brt_auto_speed,
-	    int brt_auto_threshold,
-	    int brt_auto_polling_rate,
-	    int brt_step,
-	    bool temp_auto,
-	    int temp_step
-	);
-	bool brt_auto;
-	int brt_auto_min;
-	int brt_auto_max;
-	int brt_auto_offset;
-	int brt_auto_speed; // ms
-	int brt_auto_threshold;
-	int brt_auto_polling_rate; // ms
-	int brt_step;
-	bool temp_auto;
-	int temp_step;
-};
-
 struct Config
 {
+    struct Screen
+	{
+	    Screen();
+		Screen(
+		    bool brt_auto,
+		    int brt_auto_min,
+		    int brt_auto_max,
+		    int brt_auto_offset,
+		    int brt_auto_speed,
+		    int brt_auto_threshold,
+		    int brt_auto_polling_rate,
+		    int brt_step,
+		    bool temp_auto,
+		    int temp_step
+		);
+		bool brt_auto;
+		int brt_auto_min;
+		int brt_auto_max;
+		int brt_auto_offset;
+		int brt_auto_speed; // ms
+		int brt_auto_threshold;
+		int brt_auto_polling_rate; // ms
+		int brt_step;
+		bool temp_auto;
+		int temp_step;
+	};
+
     Config();
 	const std::string _path;
 	int brt_auto_fps;
@@ -63,7 +63,7 @@ struct Config
 	int temp_auto_low;
 	std::string temp_auto_sunrise;
 	std::string temp_auto_sunset;
-	std::vector<ScreenConfig> screens;
+	std::vector<Screen> screens;
 
 	std::string path();
 	void init(const int);

@@ -38,7 +38,7 @@ Config::Config()
 {
 }
 
-ScreenConfig::ScreenConfig()
+Config::Screen::Screen()
     : brt_auto(false),
       brt_auto_min(brt_steps_max / 2),
       brt_auto_max(brt_steps_max),
@@ -58,7 +58,7 @@ void Config::init(const int detected_screens)
 
 	int new_screens = detected_screens - cfg.screens.size();
 	while (new_screens--)
-		screens.emplace_back(ScreenConfig());
+		screens.emplace_back(Screen());
 
 	cfg.write();
 }
@@ -185,7 +185,7 @@ std::string Config::path()
 	return ss.str();
 }
 
-ScreenConfig::ScreenConfig(
+Config::Screen::Screen(
     bool brt_auto,
     int brt_auto_min,
     int brt_auto_max,
