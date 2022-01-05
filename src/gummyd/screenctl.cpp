@@ -492,10 +492,13 @@ void Monitor::capture()
 
 	int img_delta = 0;
 	bool force = false;
-	int prev_ss_brt = 0,
-	    prev_min    = 0,
-	    prev_max    = 0,
-	    prev_offset = 0;
+
+	struct {
+	    int ss_brt;
+		int min;
+		int max;
+		int offset;
+	} prev{0, 0, 0, 0};
 
 	std::mutex mtx;
 
@@ -519,7 +522,7 @@ void Monitor::capture()
 
 			const int ss_brt = _server->getScreenBrightness(_id);
 
-			img_delta += abs(prev_ss_brt - ss_brt);
+			img_delta += abs(prev.ss_brt - ss_brt);
 
 			if (img_delta > cfg.screens[_id].brt_auto_threshold || force) {
 
@@ -535,16 +538,16 @@ void Monitor::capture()
 				brt_cv.notify_one();
 			}
 
-			if (cfg.screens[_id].brt_auto_min != prev_min
-			 || cfg.screens[_id].brt_auto_max != prev_max
-			 || cfg.screens[_id].brt_auto_offset != prev_offset) {
+			if (cfg.screens[_id].brt_auto_min    != prev.min
+			 || cfg.screens[_id].brt_auto_max    != prev.max
+			 || cfg.screens[_id].brt_auto_offset != prev.offset) {
 				force = true;
 			}
 
-			prev_ss_brt = ss_brt;
-			prev_min    = cfg.screens[_id].brt_auto_min;
-			prev_max    = cfg.screens[_id].brt_auto_max;
-			prev_offset = cfg.screens[_id].brt_auto_offset;
+			prev.ss_brt = ss_brt;
+			prev.min    = cfg.screens[_id].brt_auto_min;
+			prev.max    = cfg.screens[_id].brt_auto_max;
+			prev.offset = cfg.screens[_id].brt_auto_offset;
 
 			sleep_for(milliseconds(cfg.screens[_id].brt_auto_polling_rate));
 		}
