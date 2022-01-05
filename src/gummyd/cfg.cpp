@@ -60,6 +60,15 @@ void Config::init(const int detected_screens)
 	while (new_screens--)
 		screens.emplace_back(Screen());
 
+	// If temp auto is on, set temp_step to 0 for a smooth transition
+	if (cfg.temp_auto) {
+		for (size_t i = 0; i < cfg.screens.size(); ++i) {
+			if (cfg.screens[i].temp_auto) {
+				cfg.screens[i].temp_step = 0;
+			}
+		}
+	}
+
 	cfg.write();
 }
 

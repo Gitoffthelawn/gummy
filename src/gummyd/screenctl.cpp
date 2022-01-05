@@ -65,15 +65,6 @@ scrctl::Temp::Temp(Xorg &xorg)
     : _thr(std::make_unique<std::thread>([&] { temp_loop(xorg); }))
 {
 	notify_on_wakeup();
-
-	if (cfg.temp_auto) {
-		for (size_t i = 0; i < cfg.screens.size(); ++i) {
-			if (cfg.screens[i].temp_auto) {
-				cfg.screens[i].temp_step = 0;
-				xorg.set_gamma(i, cfg.screens[i].brt_step, 0);
-			}
-		}
-	}
 }
 
 scrctl::Temp::~Temp()
@@ -306,6 +297,17 @@ void scrctl::Gamma_Refresh::loop(Xorg &xorg)
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 	std::mutex mtx;
+
+	const auto refresh = [&] {
+		for (size_t i = 0; i < xorg.scr_count(); ++i) {
+			xorg.set_gamma(i,
+			    cfg.screens[i].brt_step,
+			    cfg.screens[i].temp_step);
+		}
+	};
+
+	refresh();
+
 	while (true) {
 		{
 			std::unique_lock lk(mtx);
@@ -314,12 +316,8 @@ void scrctl::Gamma_Refresh::loop(Xorg &xorg)
 			});
 		}
 		if (_quit)
-			break;
-		for (size_t i = 0; i < xorg.scr_count(); ++i) {
-			xorg.set_gamma(i,
-			               cfg.screens[i].brt_step,
-			               cfg.screens[i].temp_step);
-		}
+			return;
+		refresh();
 	}
 }
 
