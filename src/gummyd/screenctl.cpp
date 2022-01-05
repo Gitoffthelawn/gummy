@@ -24,13 +24,46 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <syslog.h>
 
-TempCtl::TempCtl(Xorg *xorg)
-    : _quit(false),
-      _force(false),
-      _current_step(0),
-      _thr(std::make_unique<std::thread>([&] { adjustTemp(xorg); }))
+void update_times(Timestamps &ts)
 {
-	checkWakeup();
+	// Get current timestamp
+	ts.cur = std::time(nullptr);
+
+	// Get tm struct from it
+	std::tm *cur_tm = std::localtime(&ts.cur);
+
+	// Set hour and min for sunrise
+	const std::string sr(cfg.temp_auto_sunrise);
+	cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
+	cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
+
+	// Subtract adaptation time
+	cur_tm->tm_sec  = 0;
+	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
+
+	ts.sunrise = std::mktime(cur_tm);
+
+	// Set hour and min for sunset
+	const std::string sn(cfg.temp_auto_sunset);
+	cur_tm->tm_hour = std::stoi(sn.substr(0, 2));
+	cur_tm->tm_min  = std::stoi(sn.substr(3, 2));
+
+	// Subtract adaptation time
+	cur_tm->tm_sec  = 0;
+	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
+
+	ts.sunset = std::mktime(cur_tm);
+}
+
+bool is_daytime(const Timestamps &ts)
+{
+	return ts.cur >= ts.sunrise && ts.cur < ts.sunset;
+}
+
+TempCtl::TempCtl(Xorg *xorg)
+    : _thr(std::make_unique<std::thread>([&] { temp_loop(xorg); }))
+{
+	notify_on_wakeup();
 
 	if (cfg.temp_auto) {
 		for (size_t i = 0; i < cfg.screens.size(); ++i) {
@@ -61,12 +94,12 @@ void TempCtl::quit()
 	_temp_cv.notify_one();
 }
 
-int TempCtl::getCurrentStep() const
+int TempCtl::current_step() const
 {
 	return _current_step;
 }
 
-void TempCtl::adjustTemp(Xorg *server)
+void TempCtl::temp_loop(Xorg *server)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
@@ -103,7 +136,9 @@ void TempCtl::adjustTemp(Xorg *server)
 	});
 
 	bool first_step = true;
-	updateTimestamps();
+
+	Timestamps ts;
+	update_times(ts);
 
 	while (true) {
 		{
@@ -117,7 +152,7 @@ void TempCtl::adjustTemp(Xorg *server)
 				break;
 
 			if (_force) {
-				updateTimestamps();
+				update_times(ts);
 				_force = false;
 				first_step = true;
 			}
@@ -130,21 +165,21 @@ void TempCtl::adjustTemp(Xorg *server)
 
 		const double adaptation_time_s = double(cfg.temp_auto_speed) * 60;
 
-		_cur_time = std::time(nullptr);
+		ts.cur = std::time(nullptr);
 
-		const bool daytime = _cur_time >= _sunrise_time && _cur_time < _sunset_time;
+		const bool daytime = is_daytime(ts);
 		int target_temp;
 		long tmp;
 
 		if (daytime) {
 			target_temp = cfg.temp_auto_high;
-			tmp = _sunrise_time;
+			tmp = ts.sunrise;
 		} else {
 			target_temp = cfg.temp_auto_low;
-			tmp = _sunset_time;
+			tmp = ts.sunset;
 		}
 
-		int time_since_start_s = std::abs(_cur_time - tmp);
+		int time_since_start_s = std::abs(ts.cur - tmp);
 
 		if (time_since_start_s > adaptation_time_s)
 			time_since_start_s = adaptation_time_s;
@@ -221,38 +256,7 @@ void TempCtl::adjustTemp(Xorg *server)
 	clock.join();
 }
 
-void TempCtl::updateTimestamps()
-{
-	// Get current timestamp
-	_cur_time = std::time(nullptr);
-
-	// Get tm struct from it
-	std::tm *cur_tm = std::localtime(&_cur_time);
-
-	// Set hour and min for sunrise
-	const std::string sr(cfg.temp_auto_sunrise);
-	cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
-	cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
-
-	// Subtract adaptation time
-	cur_tm->tm_sec  = 0;
-	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
-
-	_sunrise_time = std::mktime(cur_tm);
-
-	// Set hour and min for sunset
-	const std::string sn(cfg.temp_auto_sunset);
-	cur_tm->tm_hour = std::stoi(sn.substr(0, 2));
-	cur_tm->tm_min  = std::stoi(sn.substr(3, 2));
-
-	// Subtract adaptation time
-	cur_tm->tm_sec  = 0;
-	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
-
-	_sunset_time = std::mktime(cur_tm);
-}
-
-void TempCtl::checkWakeup()
+void TempCtl::notify_on_wakeup()
 {
 	const std::string service("org.freedesktop.login1");
 	const std::string obj_path("/org/freedesktop/login1");
@@ -275,8 +279,7 @@ void TempCtl::checkWakeup()
 }
 
 ScreenCtl::ScreenCtl(Xorg *server)
-    : _quit(false),
-      _server(server),
+    : _server(server),
       _temp_ctl(server),
       _devices(Sysfs::getDevices()),
       _gamma_refresh_thr(std::make_unique<std::thread>([this] { reapplyGamma(); }))
@@ -401,9 +404,9 @@ void ScreenCtl::applyOptions(const std::string &json)
 			cfg.screens[i].brt_auto = false;
 			_monitors[i].notify();
 
-			if(_monitors[i].hasBacklight()) {
+			if (size_t(i) < _devices.size()) {
 				cfg.screens[i].brt_step = brt_steps_max;
-				_monitors[i].setBacklight(opts.brt_perc);
+				_devices[i].setBacklight(opts.brt_perc * 255 / 100);
 			} else {
 				cfg.screens[i].brt_step = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 			}
@@ -435,7 +438,7 @@ void ScreenCtl::applyOptions(const std::string &json)
 		} else if (opts.temp_auto != -1) {
 			cfg.screens[i].temp_auto = bool(opts.temp_auto);
 			if (opts.temp_auto == 1) {
-				cfg.screens[i].temp_step = _temp_ctl.getCurrentStep();
+				cfg.screens[i].temp_step = _temp_ctl.current_step();
 			}
 		}
 
@@ -451,19 +454,17 @@ void ScreenCtl::applyOptions(const std::string &json)
 }
 
 Monitor::Monitor(Xorg* server, Device* device, const int id)
-    : _id(id),
-      _quit(false),
-      _server(server),
+   :  _server(server),
       _device(device),
+      _id(id),
       _thr(std::make_unique<std::thread>([this] { capture(); }))
 {
 }
 
-// This won't ever be called as the storage is static
 Monitor::Monitor(Monitor &&o)
-    :  _id(o._id),
-       _server(o._server),
-       _device(o._device)
+    :  _server(o._server),
+       _device(o._device),
+       _id(o._id)
 {
 	_thr.swap(o._thr);
 }
@@ -473,16 +474,6 @@ Monitor::~Monitor()
 	_quit = true;
 	_ss_cv.notify_one();
 	_thr->join();
-}
-
-bool Monitor::hasBacklight() const
-{
-	return _device != nullptr;
-}
-
-void Monitor::setBacklight(int perc)
-{
-	return _device->setBacklight(perc * 255 / 100);
 }
 
 void Monitor::notify()

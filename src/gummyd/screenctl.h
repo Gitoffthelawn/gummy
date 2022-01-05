@@ -27,35 +27,38 @@
 #include <condition_variable>
 #include <sdbus-c++/ProxyInterfaces.h>
 
+struct Timestamps {
+    std::time_t cur;
+	std::time_t sunrise;
+	std::time_t sunset;
+};
+void update_times(Timestamps &ts);
+bool is_daytime(const Timestamps &ts);
+
+/**
+ * Temperature is adjusted in two steps.
+ * The first one is for quickly catching up to the proper temperature when:
+ * - time is checked sometime after the start time
+ * - the system wakes up
+ * - temperature settings change */
 class TempCtl
 {
 public:
     TempCtl(Xorg*);
 	~TempCtl();
-	int  getCurrentStep() const;
+	int  current_step() const;
 	void notify();
 	void quit();
 private:
-	bool _quit;
-	bool _force;
-	int  _current_step;
-	std::time_t _cur_time;
-	std::time_t _sunrise_time;
-	std::time_t _sunset_time;
-
 	std::condition_variable _temp_cv;
 	std::unique_ptr<std::thread> _thr;
 	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
+	int  _current_step{};
+	bool _force{};
+	bool _quit{};
 
-	/**
-	 * Temperature is adjusted in two steps.
-	 * The first one is for quickly catching up to the proper temperature when:
-	 * - time is checked sometime after the start time
-	 * - the system wakes up
-	 * - temperature settings change */
-	void adjustTemp(Xorg*);
-	void updateTimestamps();
-	void checkWakeup();
+	void temp_loop(Xorg*);
+	void notify_on_wakeup();
 };
 
 class Monitor
@@ -64,24 +67,20 @@ public:
     Monitor(Xorg* server, Device *device, const int id);
 	Monitor(Monitor&&);
 	~Monitor();
-
-	bool hasBacklight() const;
-	void setBacklight(const int perc);
 	void notify();
 	void quit();
 private:
-	const int _id;
-	bool _quit;
-	bool _force;
-	int  _current_step;
-	int  _ss_brt;
-	bool _brt_needs_change;
-
+	std::condition_variable _ss_cv;
+	std::mutex _brt_mtx;
 	Xorg *_server;
 	Device *_device;
-	std::mutex _brt_mtx;
-	std::condition_variable _ss_cv;
+	const int _id;
 	std::unique_ptr<std::thread> _thr;
+	int  _current_step{};
+	int  _ss_brt;
+	bool _brt_needs_change{};
+	bool _force{};
+	bool _quit{};
 
 	void capture();
 	void adjustBrightness(std::condition_variable&);
@@ -94,14 +93,14 @@ public:
 	~ScreenCtl();
 	void applyOptions(const std::string&);
 private:
-	bool _quit;
 	Xorg *_server;
 	TempCtl _temp_ctl;
 	std::vector<Device>  _devices;
-	std::vector<Monitor> _monitors;
-
 	std::condition_variable _gamma_refresh_cv;
 	std::unique_ptr<std::thread> _gamma_refresh_thr;
+	std::vector<Monitor> _monitors;
+	bool _quit{};
+
 	void reapplyGamma();
 };
 
