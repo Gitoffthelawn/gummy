@@ -75,4 +75,24 @@ struct Config
 
 extern Config cfg;
 
+struct Message
+{
+    Message(const std::string &json);
+	int scr_no               = -1;
+	int brt_perc             = -1;
+	int brt_auto             = -1;
+	int brt_auto_min         = -1;
+	int brt_auto_max         = -1;
+	int brt_auto_offset      = -1;
+	int brt_auto_speed       = -1;
+	int screenshot_rate_ms   = -1;
+	int temp_auto            = -1;
+	int temp_k               = -1;
+	int temp_day_k           = -1;
+	int temp_night_k         = -1;
+	int temp_adaptation_time = -1;
+	std::string sunrise_time;
+	std::string sunset_time;
+};
+
 #endif // CFG_H

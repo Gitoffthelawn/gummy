@@ -24,23 +24,18 @@
 #include <syslog.h>
 #include <libudev.h>
 
-std::vector<Device> Sysfs::getDevices()
+std::vector<Sysfs::Device> Sysfs::get_devices()
 {
 	namespace fs = std::filesystem;
 
 	std::vector<Device> devices;
-
 	udev *udev = udev_new();
 
 	for (const auto &entry : fs::directory_iterator("/sys/class/backlight")) {
-
 		const auto path = entry.path();
 		const auto path_str = path.generic_string();
-
 		udev_device *dev = udev_device_new_from_syspath(udev, path_str.c_str());
-
 		const std::string max_brt(udev_device_get_sysattr_value(dev, "max_brightness"));
-
 		devices.emplace_back(
 		    dev,
 		    std::stoi(max_brt)
@@ -48,16 +43,24 @@ std::vector<Device> Sysfs::getDevices()
 	}
 
 	udev_unref(udev);
-
 	return devices;
 }
 
-Device::Device(udev_device *dev, const int max_brt) : max_brt(max_brt), dev(dev) {}
-Device::Device(Device&& d) : max_brt(d.max_brt), dev(d.dev) {}
+Sysfs::Device::Device(udev_device *dev, const int max_brt)
+    : max_brt(max_brt),
+      dev(dev) {}
 
-void Device::setBacklight(int brt)
+Sysfs::Device::~Device()
+{
+	udev_device_unref(dev);
+}
+
+Sysfs::Device::Device(Device&& d)
+    : max_brt(d.max_brt),
+      dev(d.dev) {}
+
+void Sysfs::Device::set_backlight(int brt)
 {
     brt = std::clamp(brt, 0, max_brt);
-    udev_device_set_sysattr_value(
-                dev, "brightness", std::to_string(brt).c_str());
+    udev_device_set_sysattr_value(dev, "brightness", std::to_string(brt).c_str());
 }

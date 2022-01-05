@@ -208,3 +208,23 @@ ScreenConfig::ScreenConfig(
     temp_step(temp_step)
 {
 }
+
+Message::Message(const std::string &j)
+{
+	json msg = json::parse(j);
+	scr_no               = msg["scr_no"];
+	brt_perc             = msg["brt_perc"];
+	brt_auto             = msg["brt_mode"];
+	brt_auto_min         = msg["brt_auto_min"];
+	brt_auto_max         = msg["brt_auto_max"];
+	brt_auto_offset      = msg["brt_auto_offset"];
+	brt_auto_speed       = msg["brt_auto_speed"];
+	screenshot_rate_ms   = msg["brt_auto_screenshot_rate"];
+	temp_k               = msg["temp_k"];
+	temp_auto            = msg["temp_mode"];
+	temp_day_k           = msg["temp_day_k"];
+	temp_night_k         = msg["temp_night_k"];
+	sunrise_time         = msg["sunrise_time"];
+	sunset_time          = msg["sunset_time"];
+	temp_adaptation_time = msg["temp_adaptation_time"];
+}

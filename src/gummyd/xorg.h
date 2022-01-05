@@ -30,61 +30,60 @@
 
 #include <vector>
 
-struct XLib
-{
-	XLib();
-	~XLib();
-	Display *dsp;
-	Screen  *screen;
-	Window  root;
-	int scr_no;
-};
-
-struct XCB
-{
-	XCB();
-	~XCB();
-	xcb_connection_t *conn;
-	xcb_screen_t *screen;
-	int pref_screen;
-	int randr_crtc_count;
-	xcb_randr_crtc_t *randr_crtcs;
-};
-
-class Output
-{
-public:
-	Output(const XLib &xlib,
-	       const xcb_randr_crtc_t c,
-	       xcb_randr_get_crtc_info_reply_t *i);
-	~Output();
-
-	xcb_randr_crtc_t crtc;
-
-	void setRampSize(const int);
-	int  getImageBrightness(const XLib &xlib);
-	void applyGammaRamp(const XCB &xcb, const int brt_step, const int temp_step);
-private:
-	int _ramp_sz;
-	std::vector<uint16_t> _ramps;
-	xcb_randr_get_crtc_info_reply_t *_info;
-	XShmSegmentInfo _shminfo;
-	XImage   *_image;
-	uint64_t _image_len;
-};
-
 class Xorg
 {
-public:
-	Xorg();
-	int  screenCount();
-	void setGamma(const int scr_idx, const int brt, const int temp);
-	void setGamma();
-	int  getScreenBrightness(const int scr_idx);
-private:
-	XLib _xlib;
-	XCB  _xcb;
-	std::vector<Output> _outputs;
+    struct XLib
+	{
+	    XLib();
+		~XLib();
+		Display *dsp;
+		Screen  *screen;
+		Window  root;
+		int scr_no;
+	};
+
+	struct XCB
+	{
+	    XCB();
+		~XCB();
+		xcb_connection_t *conn;
+		xcb_screen_t *screen;
+		int pref_screen;
+		int randr_crtc_count;
+		xcb_randr_crtc_t *randr_crtcs;
+	};
+
+	class Output
+	{
+	public:
+	    Output(const XLib &xlib,
+		       const xcb_randr_crtc_t c,
+		       xcb_randr_get_crtc_info_reply_t *i);
+		~Output();
+
+		xcb_randr_crtc_t crtc;
+
+		void set_ramp_size(const int);
+		int  get_image_brightness(const XLib &xlib) const;
+		void apply_gamma_ramp(const XCB &xcb, const int brt_step, const int temp_step);
+	private:
+		XShmSegmentInfo _shminfo;
+		std::vector<uint16_t> _ramps;
+		xcb_randr_get_crtc_info_reply_t *_info;
+		XImage   *_image;
+		uint64_t _image_len;
+		int _ramp_sz;
+	};
+
+	public:
+	    Xorg();
+		size_t scr_count() const;
+		int  get_screen_brightness(const int scr_idx) const;
+		void set_gamma(const int scr_idx, const int brt, const int temp);
+	private:
+		XLib _xlib;
+		XCB  _xcb;
+		std::vector<Output> _outputs;
 };
 
 #endif // XCB_H

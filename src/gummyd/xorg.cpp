@@ -24,9 +24,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <syslog.h>
-#include <iostream>
 
-XLib::XLib()
+Xorg::XLib::XLib()
 {
 	if (XInitThreads() == 0) {
 		syslog(LOG_ERR, "XInitThreads failed");
@@ -41,12 +40,12 @@ XLib::XLib()
 	scr_no = DefaultScreen(dsp);
 };
 
-XLib::~XLib()
+Xorg::XLib::~XLib()
 {
     XCloseDisplay(dsp);
 }
 
-XCB::XCB()
+Xorg::XCB::XCB()
     : conn(xcb_connect(nullptr, &pref_screen))
 {
 	int err = xcb_connection_has_error(conn);
@@ -71,12 +70,12 @@ XCB::XCB()
 	free(scr_rpl);
 }
 
-XCB::~XCB()
+Xorg::XCB::~XCB()
 {
     xcb_disconnect(conn);
 }
 
-Output::Output(const XLib &xlib,
+Xorg::Output::Output(const XLib &xlib,
                const xcb_randr_crtc_t c,
                xcb_randr_get_crtc_info_reply_t *i)
     : crtc(c),
@@ -107,13 +106,13 @@ Output::Output(const XLib &xlib,
 	XShmAttach(xlib.dsp, &_shminfo);
 }
 
-void Output::setRampSize(const int sz)
+void Xorg::Output::set_ramp_size(const int sz)
 {
 	_ramp_sz = sz;
 	_ramps.resize(3 * size_t(sz) * sizeof(uint16_t));
 }
 
-int Output::getImageBrightness(const XLib &xlib)
+int Xorg::Output::get_image_brightness(const XLib &xlib) const
 {
 	XShmGetImage(xlib.dsp, xlib.root, _image, _info->x, _info->y, AllPlanes);
 
@@ -123,7 +122,7 @@ int Output::getImageBrightness(const XLib &xlib)
 	);
 }
 
-Output::~Output()
+Xorg::Output::~Output()
 {
 	free(_info);
 }
@@ -146,32 +145,22 @@ Xorg::Xorg()
 	}
 	for (size_t i = 0; i < _outputs.size(); ++i) {
 		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(_xcb.conn, gck[i], nullptr);
-		_outputs[i].setRampSize(gamma_rpl->size);
+		_outputs[i].set_ramp_size(gamma_rpl->size);
 		free(gamma_rpl);
 	}
 }
 
-int Xorg::getScreenBrightness(const int scr_idx)
+int Xorg::get_screen_brightness(const int scr_idx) const
 {
-	return _outputs[scr_idx].getImageBrightness(_xlib);
+	return _outputs[scr_idx].get_image_brightness(_xlib);
 }
 
-void Xorg::setGamma(const int scr_idx, const int brt_step, const int temp_step)
+void Xorg::set_gamma(const int scr_idx, const int brt_step, const int temp_step)
 {
-	_outputs[scr_idx].applyGammaRamp(_xcb, brt_step, temp_step);
+	_outputs[scr_idx].apply_gamma_ramp(_xcb, brt_step, temp_step);
 }
 
-void Xorg::setGamma()
-{
-	for (size_t i = 0; i < _outputs.size(); ++i)
-		_outputs[i].applyGammaRamp(
-		    _xcb,
-		    cfg.screens[i].brt_step,
-		    cfg.screens[i].temp_step
-		);
-}
-
-void Output::applyGammaRamp(const XCB &xcb, const int brt_step, const int temp_step)
+void Xorg::Output::apply_gamma_ramp(const XCB &xcb, const int brt_step, const int temp_step)
 {
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.
@@ -204,7 +193,7 @@ void Output::applyGammaRamp(const XCB &xcb, const int brt_step, const int temp_s
 	}
 }
 
-int Xorg::screenCount()
+size_t Xorg::scr_count() const
 {
 	return _outputs.size();
 }

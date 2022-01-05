@@ -35,17 +35,19 @@ struct Timestamps {
 void update_times(Timestamps &ts);
 bool is_daytime(const Timestamps &ts);
 
+namespace scrctl {
+
 /**
  * Temperature is adjusted in two steps.
  * The first one is for quickly catching up to the proper temperature when:
  * - time is checked sometime after the start time
  * - the system wakes up
  * - temperature settings change */
-class TempCtl
+class Temp
 {
 public:
-    TempCtl(Xorg*);
-	~TempCtl();
+    Temp(Xorg&);
+	~Temp();
 	int  current_step() const;
 	void notify();
 	void quit();
@@ -57,14 +59,14 @@ private:
 	bool _force{};
 	bool _quit{};
 
-	void temp_loop(Xorg*);
+	void temp_loop(Xorg&);
 	void notify_on_wakeup();
 };
 
 class Monitor
 {
 public:
-    Monitor(Xorg* server, Device *device, const int id);
+    Monitor(Xorg* xorg, Sysfs::Device *device, const int id);
 	Monitor(Monitor&&);
 	~Monitor();
 	void notify();
@@ -72,8 +74,8 @@ public:
 private:
 	std::condition_variable _ss_cv;
 	std::mutex _brt_mtx;
-	Xorg *_server;
-	Device *_device;
+	Xorg *_xorg;
+	Sysfs::Device *_device;
 	const int _id;
 	std::unique_ptr<std::thread> _thr;
 	int  _current_step{};
@@ -83,45 +85,28 @@ private:
 	bool _quit{};
 
 	void capture();
-	void adjustBrightness(std::condition_variable&);
+	void brt_loop(std::condition_variable&);
 };
 
-class ScreenCtl
+struct Brt
+{
+    Brt(Xorg &);
+	std::vector<Sysfs::Device> devices;
+	std::vector<Monitor> monitors;
+};
+
+class Gamma_Refresh
 {
 public:
-    ScreenCtl(Xorg *server);
-	~ScreenCtl();
-	void applyOptions(const std::string&);
+    Gamma_Refresh(Xorg&);
+	~Gamma_Refresh();
 private:
-	Xorg *_server;
-	TempCtl _temp_ctl;
-	std::vector<Device>  _devices;
-	std::condition_variable _gamma_refresh_cv;
-	std::unique_ptr<std::thread> _gamma_refresh_thr;
-	std::vector<Monitor> _monitors;
+	std::condition_variable _cv;
+	std::unique_ptr<std::thread> _thr;
 	bool _quit{};
-
-	void reapplyGamma();
+	void loop(Xorg&);
 };
 
-struct Options
-{
-    Options(const std::string &in);
-	int scr_no               = -1;
-	int brt_perc             = -1;
-	int brt_auto             = -1;
-	int brt_auto_min         = -1;
-	int brt_auto_max         = -1;
-	int brt_auto_offset      = -1;
-	int brt_auto_speed       = -1;
-	int screenshot_rate_ms   = -1;
-	int temp_auto            = -1;
-	int temp_k               = -1;
-	int temp_day_k           = -1;
-	int temp_night_k         = -1;
-	int temp_adaptation_time = -1;
-	std::string sunrise_time;
-	std::string sunset_time;
-};
+}
 
 #endif // SCREENCTL_H

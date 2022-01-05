@@ -23,22 +23,20 @@
 #include <filesystem>
 #include <libudev.h>
 
-class Device;
-class Sysfs
+namespace Sysfs
 {
-public:
-	static std::vector<Device> getDevices();
-};
-
-class Device
-{
-public:
-	Device(udev_device *udev_device, int);
-	Device(Device&&);
-	const int max_brt;
-	void setBacklight(int);
-private:
-	udev_device *dev;
+    class Device
+	{
+	public:
+	    Device(udev_device *udev_device, int);
+		Device(Device&&);
+		~Device();
+		const int max_brt;
+		void set_backlight(int);
+	private:
+		udev_device *dev;
+	};
+	std::vector<Device> get_devices();
 };
 
 #endif // SYSFS_H
