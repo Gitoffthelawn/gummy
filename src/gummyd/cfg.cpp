@@ -54,22 +54,22 @@ Config::Screen::Screen()
 
 void Config::init(const int detected_screens)
 {
-	cfg.read();
+	read();
 
-	int new_screens = detected_screens - cfg.screens.size();
+	int new_screens = detected_screens - screens.size();
 	while (new_screens--)
 		screens.emplace_back(Screen());
 
 	// If temp auto is on, set temp_step to 0 for a smooth transition
-	if (cfg.temp_auto) {
-		for (size_t i = 0; i < cfg.screens.size(); ++i) {
-			if (cfg.screens[i].temp_auto) {
-				cfg.screens[i].temp_step = 0;
+	if (temp_auto) {
+		for (size_t i = 0; i < screens.size(); ++i) {
+			if (screens[i].temp_auto) {
+				screens[i].temp_step = 0;
 			}
 		}
 	}
 
-	cfg.write();
+	write();
 }
 
 void Config::read()
@@ -113,7 +113,7 @@ void Config::write()
 	}
 
 	try {
-		fs << std::setw(4) << cfg.to_json();
+		fs << std::setw(4) << to_json();
 	} catch (json::exception &e) {
 		syslog(LOG_ERR, "%s\n", e.what());
 		return;
