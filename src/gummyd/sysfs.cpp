@@ -24,43 +24,57 @@
 #include <syslog.h>
 #include <libudev.h>
 
-std::vector<Sysfs::Device> Sysfs::get_devices()
+std::vector<Sysfs::Backlight> Sysfs::get_bl()
 {
 	namespace fs = std::filesystem;
-
-	std::vector<Device> devices;
+	std::vector<Sysfs::Backlight> bl;
 	udev *udev = udev_new();
-
-	for (const auto &entry : fs::directory_iterator("/sys/class/backlight")) {
-		const auto path = entry.path();
-		const auto path_str = path.generic_string();
-		udev_device *dev = udev_device_new_from_syspath(udev, path_str.c_str());
-		const std::string max_brt(udev_device_get_sysattr_value(dev, "max_brightness"));
-		devices.emplace_back(
-		    dev,
-		    std::stoi(max_brt)
-		);
+	for (const auto &s : fs::directory_iterator("/sys/class/backlight")) {
+		bl.emplace_back(udev, s.path().generic_string());
 	}
-
 	udev_unref(udev);
-	return devices;
+	return bl;
 }
 
-Sysfs::Device::Device(udev_device *dev, const int max_brt)
-    : max_brt(max_brt),
-      dev(dev) {}
+Sysfs::Device::Device(udev *udev, const std::string &path)
+{
+	_dev = udev_device_new_from_syspath(udev, path.c_str());
+}
+
+Sysfs::Device::Device(Device &&d) : _dev(d._dev)
+{
+
+}
 
 Sysfs::Device::~Device()
 {
-	udev_device_unref(dev);
+	udev_device_unref(_dev);
 }
 
-Sysfs::Device::Device(Device&& d)
-    : max_brt(d.max_brt),
-      dev(d.dev) {}
-
-void Sysfs::Device::set_backlight(int brt)
+std::string Sysfs::Device::get(const std::string &attr)
 {
-    brt = std::clamp(brt, 0, max_brt);
-    udev_device_set_sysattr_value(dev, "brightness", std::to_string(brt).c_str());
+	return udev_device_get_sysattr_value(_dev, attr.c_str());
+}
+
+void Sysfs::Device::set(const std::string &attr, const std::string &val)
+{
+	udev_device_set_sysattr_value(_dev, attr.c_str(), val.c_str());
+}
+
+Sysfs::Backlight::Backlight(udev *udev, const std::string &path)
+	: _dev(udev, path),
+	  _max_brt(std::stoi(_dev.get("max_brightness")))
+{
+
+}
+
+void Sysfs::Backlight::set(int brt)
+{
+	brt = std::clamp(brt, 0, _max_brt);
+	_dev.set("brightness", std::to_string(brt).c_str());
+}
+
+int Sysfs::Backlight::max_brt() const 
+{
+	return _max_brt;
 }

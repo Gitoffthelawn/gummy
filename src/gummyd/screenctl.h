@@ -28,7 +28,7 @@
 #include <sdbus-c++/ProxyInterfaces.h>
 
 struct Timestamps {
-    std::time_t cur;
+	std::time_t cur;
 	std::time_t sunrise;
 	std::time_t sunset;
 };
@@ -46,7 +46,7 @@ namespace scrctl {
 class Temp
 {
 public:
-    Temp(Xorg&);
+	Temp(Xorg&);
 	~Temp();
 	int  current_step() const;
 	void notify();
@@ -66,7 +66,7 @@ private:
 class Monitor
 {
 public:
-    Monitor(Xorg* xorg, Sysfs::Device *device, const int id);
+	Monitor(Xorg* xorg, Sysfs::Backlight *bl, int id);
 	Monitor(Monitor&&);
 	~Monitor();
 	void notify();
@@ -75,9 +75,10 @@ private:
 	std::condition_variable _ss_cv;
 	std::mutex _brt_mtx;
 	Xorg *_xorg;
-	Sysfs::Device *_device;
-	const int _id;
+	Sysfs::Backlight *_bl;	
+	int _id;
 	std::unique_ptr<std::thread> _thr;
+	
 	int  _current_step{};
 	int  _ss_brt;
 	bool _brt_needs_change{};
@@ -90,15 +91,15 @@ private:
 
 struct Brt
 {
-    Brt(Xorg &);
-	std::vector<Sysfs::Device> devices;
+    	Brt(Xorg &);
+	std::vector<Sysfs::Backlight> backlights;
 	std::vector<Monitor> monitors;
 };
 
 class Gamma_Refresh
 {
 public:
-    Gamma_Refresh(Xorg&);
+	Gamma_Refresh(Xorg&);
 	~Gamma_Refresh();
 private:
 	std::condition_variable _cv;

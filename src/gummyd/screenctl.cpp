@@ -270,13 +270,11 @@ void scrctl::Temp::notify_on_wakeup()
 }
 
 scrctl::Brt::Brt(Xorg &xorg)
-     : devices(Sysfs::get_devices())
+     : backlights(Sysfs::get_bl())
 {
 	monitors.reserve(xorg.scr_count());
 	for (size_t i = 0; i < xorg.scr_count(); ++i) {
-		monitors.emplace_back(&xorg,
-		   devices.size() > i ? &devices[i] : nullptr,
-		   i);
+		monitors.emplace_back(&xorg, &backlights[i] ? &backlights[i] : nullptr, i);
 	}
 	assert(monitors.size() == xorg.scr_count());
 }
@@ -321,9 +319,9 @@ void scrctl::Gamma_Refresh::loop(Xorg &xorg)
 	}
 }
 
-scrctl::Monitor::Monitor(Xorg* xorg, Sysfs::Device *device, const int id)
+scrctl::Monitor::Monitor(Xorg* xorg, Sysfs::Backlight *bl, int id)
    :  _xorg(xorg),
-      _device(device),
+      _bl(bl),
       _id(id),
       _thr(std::make_unique<std::thread>([this] { capture(); }))
 {
@@ -331,7 +329,7 @@ scrctl::Monitor::Monitor(Xorg* xorg, Sysfs::Device *device, const int id)
 
 scrctl::Monitor::Monitor(Monitor &&o)
     :  _xorg(o._xorg),
-       _device(o._device),
+       _bl(o._bl),
        _id(o._id)
 {
 	_thr.swap(o._thr);
@@ -438,7 +436,7 @@ void scrctl::Monitor::brt_loop(std::condition_variable &brt_cv)
 
 	int cur_step = brt_steps_max;
 
-	if (!_device) {
+	if (!_bl) {
 		_xorg->set_gamma(_id, brt_steps_max, cfg.screens[_id].temp_step);
 	}
 
@@ -476,9 +474,9 @@ void scrctl::Monitor::brt_loop(std::condition_variable &brt_cv)
 			continue;
 		}
 
-		if (_device) {
+		if (_bl) {
 			cur_step = target_step;
-			_device->set_backlight(cur_step * _device->max_brt / brt_steps_max);
+			_bl->set(cur_step * _bl->max_brt() / brt_steps_max);
 			continue;
 		}
 

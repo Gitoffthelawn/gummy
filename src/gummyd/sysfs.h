@@ -25,18 +25,40 @@
 
 namespace Sysfs
 {
-    class Device
+	class Device
 	{
 	public:
-	    Device(udev_device *udev_device, int);
+		Device(udev*, const std::string &path);
 		Device(Device&&);
 		~Device();
-		const int max_brt;
-		void set_backlight(int);
+		std::string get(const std::string &attr);
+		void        set(const std::string &attr, const std::string &val);
 	private:
-		udev_device *dev;
+		udev_device *_dev;
 	};
-	std::vector<Device> get_devices();
+
+	class Backlight
+	{
+	public:
+		Backlight(udev*, const std::string &path);
+		int max_brt() const;
+		void set(int);
+	private:
+		Device _dev;
+		int _max_brt;
+	};
+
+	class ALS
+	{
+	public:
+		ALS(udev*, const std::string &path);
+		int get_lux() const;
+	private:
+		Device _dev;
+	};
+
+	std::vector<Backlight> get_bl();
+	std::vector<ALS> get_als();
 };
 
 #endif // SYSFS_H

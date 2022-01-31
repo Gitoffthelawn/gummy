@@ -91,9 +91,9 @@ void apply_options(const Message &opts, Xorg &xorg, scrctl::Brt &brtctl, scrctl:
 			cfg.screens[i].brt_auto = false;
 			brtctl.monitors[i].notify();
 
-			if (size_t(i) < brtctl.devices.size()) {
+			if (&brtctl.backlights[i]) {
 				cfg.screens[i].brt_step = brt_steps_max;
-				brtctl.devices[i].set_backlight(opts.brt_perc * 255 / 100);
+				brtctl.backlights[i].set(opts.brt_perc * 255 / 100);
 			} else {
 				cfg.screens[i].brt_step = int(remap(opts.brt_perc, 0, 100, 0, brt_steps_max));
 			}
