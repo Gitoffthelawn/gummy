@@ -36,6 +36,21 @@ std::vector<Sysfs::Backlight> Sysfs::get_bl()
 	return bl;
 }
 
+std::vector<Sysfs::ALS> Sysfs::get_als()
+{
+	namespace fs = std::filesystem;
+	std::vector<Sysfs::ALS> als;
+	udev *udev = udev_new();
+	for (const auto &s : fs::directory_iterator("/sys/bus/iio/devices")) {  
+		const auto f = s.path().stem().string(); 
+		if (f.find("iio:device") == std::string::npos)
+			continue;
+		als.emplace_back(udev, s.path());
+	}
+	udev_unref(udev);
+	return als;
+}
+
 Sysfs::Device::Device(udev *udev, const std::string &path)
 {
 	_dev = udev_device_new_from_syspath(udev, path.c_str());
@@ -51,7 +66,7 @@ Sysfs::Device::~Device()
 	udev_device_unref(_dev);
 }
 
-std::string Sysfs::Device::get(const std::string &attr)
+std::string Sysfs::Device::get(const std::string &attr) const
 {
 	return udev_device_get_sysattr_value(_dev, attr.c_str());
 }
@@ -77,4 +92,15 @@ void Sysfs::Backlight::set(int brt)
 int Sysfs::Backlight::max_brt() const 
 {
 	return _max_brt;
+}
+
+Sysfs::ALS::ALS(udev *udev, const std::string &path)
+	: _dev(udev, path)
+{
+
+}
+
+int Sysfs::ALS::get_lux() const
+{
+	return std::stoi(_dev.get("in_illuminance_raw"));
 }

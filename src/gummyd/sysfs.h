@@ -31,7 +31,7 @@ namespace Sysfs
 		Device(udev*, const std::string &path);
 		Device(Device&&);
 		~Device();
-		std::string get(const std::string &attr);
+		std::string get(const std::string &attr) const;
 		void        set(const std::string &attr, const std::string &val);
 	private:
 		udev_device *_dev;
