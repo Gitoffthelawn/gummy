@@ -8,9 +8,17 @@ Disclaimer: this program is still in development! You are welcome and encouraged
 
 ## Installation
 
-DEB packages are provided in each new [release.](https://github.com/Fushko/gummy/releases) RPM packages to be added in the future.
+DEB packages:
+- provided in each new [release.](https://github.com/Fushko/gummy/releases)
 
-A reboot is required after the installation to ensure udev rules for backlight adjustments are loaded.
+AUR packages:
+- [stable](https://aur.archlinux.org/packages/gummy/)
+- [bleeding edge](https://aur.archlinux.org/packages/gummy-git/)
+
+RPM packages:
+- to be added
+
+A reboot may be needed after the installation to ensure udev rules for backlight adjustments are loaded.
 
 ## Building from source
 
