@@ -61,16 +61,17 @@ bool is_daytime(const Timestamps &ts)
 	return ts.cur >= ts.sunrise && ts.cur < ts.sunset;
 }
 
-scrctl::Temp::Temp(Xorg &xorg)
-    : _thr(std::make_unique<std::thread>([&] { temp_loop(xorg); }))
+scrctl::Temp::Temp()
+    : _current_step(0),
+      _force(false),
+      _quit(false)
 {
-	notify_on_wakeup();
 }
 
-scrctl::Temp::~Temp()
+void scrctl::Temp::start(Xorg &xorg)
 {
-	quit();
-	_thr->join();
+	notify_on_wakeup();
+	temp_loop(xorg);
 }
 
 void scrctl::Temp::notify()
@@ -79,7 +80,7 @@ void scrctl::Temp::notify()
 	_temp_cv.notify_one();
 }
 
-void scrctl::Temp::quit()
+void scrctl::Temp::stop()
 {
 	_quit = true;
 	_temp_cv.notify_one();
@@ -202,49 +203,46 @@ void scrctl::Temp::temp_loop(Xorg &xorg)
 			continue;
 		}
 
-		const int FPS      = cfg.temp_auto_fps;
-		const double slice = 1. / FPS;
+		Animation a;
+		a.elapsed    = 0.;
+		a.fps        = cfg.temp_auto_fps;
+		a.slice      = 1. / a.fps;
+		a.duration_s = animation_s;
+		a.start_step = _current_step;
+		a.diff       = target_step - a.start_step;
 
-		double time = 0;
-		const int start_step = _current_step;
-		const int diff = target_step - start_step;
-
-		int prev_step = -1;
-
-		while (_current_step != target_step) {
-
-			if (_force || !cfg.temp_auto || _quit)
-				break;
-
-			time += slice;
-
-			_current_step = int(ease_in_out_quad(time, start_step, diff, animation_s));
-
-			if (_current_step != prev_step) {
-
-				for (size_t i = 0; i < xorg.scr_count(); ++i) {
-
-					if (cfg.screens[i].temp_auto) {
-
-						cfg.screens[i].temp_step = _current_step;
-						xorg.set_gamma(
-						    i,
-						    cfg.screens[i].brt_step,
-						    _current_step
-						);
-					}
-				}
-			}
-
-			prev_step = _current_step;
-
-			sleep_for(milliseconds(1000 / FPS));
-		}
+		temp_animation_loop(-1, _current_step, target_step, a, xorg);
 		first_step = false;
 	}
 
 	clock_cv.notify_one();
 	clock.join();
+}
+
+void scrctl::Temp::temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg &xorg)
+{
+	using namespace std::this_thread;
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+	if (_current_step == target_step || _force || !cfg.temp_auto || _quit)
+		return;
+
+	a.elapsed += a.slice;
+	_current_step = int(ease_in_out_quad(a.elapsed, a.start_step, a.diff, a.duration_s));
+
+	if (_current_step != prev_step) {
+		for (size_t i = 0; i < xorg.scr_count(); ++i) {
+			if (cfg.screens[i].temp_auto) {
+				cfg.screens[i].temp_step = _current_step;
+				xorg.set_gamma(i,
+				               cfg.screens[i].brt_step,
+				               _current_step);
+			}
+		}
+	}
+
+	sleep_for(milliseconds(1000 / a.fps));
+	temp_animation_loop(cur_step, cur_step, target_step, a, xorg);
 }
 
 void scrctl::Temp::notify_on_wakeup()
@@ -277,16 +275,19 @@ scrctl::Brt::Brt(Xorg &xorg)
 	threads.reserve(xorg.scr_count());
 
 	for (size_t i = 0; i < xorg.scr_count(); ++i) {
-		monitors.emplace_back(&xorg, 
-		        &backlights[i] ? &backlights[i] : nullptr,
-		        &als[0] ? &als[0] : nullptr,
-				i);
+		monitors.emplace_back(&xorg,
+		                      &backlights[i] ? &backlights[i] : nullptr,
+		                      &als[0] ? &als[0] : nullptr,
+		                      i);
 	}
 
+	assert(monitors.size() == xorg.scr_count());
+}
+
+void scrctl::Brt::start()
+{
 	for (auto &m : monitors)
 		threads.emplace_back([&] { m.init(); });
-
-	assert(monitors.size() == xorg.scr_count());
 }
 
 void scrctl::Brt::stop()

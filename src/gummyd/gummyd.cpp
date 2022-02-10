@@ -193,18 +193,18 @@ int main(int argc, char **argv)
 	init_fifo();
 
 	scrctl::Gamma_Refresh g;
+	scrctl::Brt           b(xorg);
+	scrctl::Temp          t;
 
 	std::vector<std::thread> threads;
+	threads.reserve(3);
 	threads.emplace_back([&] { g.loop(xorg); });
-
-	// Control brightness
-	scrctl::Brt b(xorg);
-
-	// Control temperature
-	scrctl::Temp t(xorg);
+	threads.emplace_back([&] { b.start(); });
+	threads.emplace_back([&] { t.start(xorg); });
 
 	message_loop(xorg, b, t);
 
+	t.stop();
 	b.stop();
 	g.stop();
 

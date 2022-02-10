@@ -47,21 +47,21 @@ namespace scrctl {
 class Temp
 {
 public:
-	Temp(Xorg&);
-	~Temp();
+	Temp();
+	void start(Xorg&);
 	int  current_step() const;
 	void notify();
-	void quit();
+	void stop();
 private:
 	std::condition_variable _temp_cv;
-	std::unique_ptr<std::thread> _thr;
 	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
-	int  _current_step{};
-	bool _force{};
-	bool _quit{};
+	int  _current_step;
+	bool _force;
+	bool _quit;
 
 	void temp_loop(Xorg&);
 	void notify_on_wakeup();
+	void temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg&);
 };
 
 class Monitor
@@ -75,32 +75,34 @@ public:
 private:
 	std::condition_variable _ss_cv;
 	std::mutex              _brt_mtx;
-	Xorg                    *_xorg;
-	Sysfs::Backlight        *_bl;
-	Sysfs::ALS              *_als;
-	int                     _id;
 
 	struct {
 		int ss_brt;
 		int cfg_min;
 		int cfg_max;
 		int cfg_offset;
-	} prev{0, 0, 0, 0};
+	} prev;
+	void capture_loop(std::condition_variable&, int img_delta);
 
+	Xorg             *_xorg;
+	Sysfs::Backlight *_bl;
+	Sysfs::ALS       *_als;
+
+	int  _id;
 	int  _ss_brt;
 	bool _brt_needs_change;
 	bool _force;
 	bool _quit;
 
 	void wait_for_auto_brt_active(std::condition_variable &);
-	void capture_loop(std::condition_variable&, int img_delta);
 	void brt_adjust_loop(std::condition_variable&, int cur_step);
 	int  brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a);
 };
 
 struct Brt
 {
-	Brt(Xorg &);
+	Brt(Xorg&);
+	void start();
 	void stop();
 	std::vector<Sysfs::Backlight> backlights;
 	std::vector<Sysfs::ALS>       als;
