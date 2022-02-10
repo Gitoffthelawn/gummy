@@ -445,25 +445,25 @@ void scrctl::Monitor::brt_adjust_loop(std::condition_variable &brt_cv, int cur_s
 		a.start_step = cur_step;
 		a.diff       = target_step - a.start_step;
 		a.duration_s = double(cfg.screens[_id].brt_auto_speed) / 1000;
-		brt_animation_loop(-1, cur_step, target_step, a);
+		cur_step     = brt_animation_loop(-1, cur_step, target_step, a);
 	}
 
 	brt_adjust_loop(brt_cv, cur_step);
 }
 
-void scrctl::Monitor::brt_animation_loop(int prev_step, int &cur_step, int target_step, Animation a)
+int scrctl::Monitor::brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
 	if (cur_step == target_step && !_force)
-		return;
+		return cur_step;
 
 	_force = false; // warning: shared
 
 	if (_brt_needs_change || !cfg.screens[_id].brt_auto || _quit)
-		return;
+		return cur_step;
 
 	a.elapsed += a.slice;
 	cur_step = int(std::round(ease_out_expo(a.elapsed, a.start_step, a.diff, a.duration_s)));
@@ -476,7 +476,7 @@ void scrctl::Monitor::brt_animation_loop(int prev_step, int &cur_step, int targe
 	}
 
 	sleep_for(milliseconds(1000 / a.fps));
-	brt_animation_loop(cur_step, cur_step, target_step, a);
+	return brt_animation_loop(cur_step, cur_step, target_step, a);
 }
 
 scrctl::Gamma_Refresh::Gamma_Refresh() : _quit(false)

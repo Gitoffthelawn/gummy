@@ -95,7 +95,7 @@ private:
 	void wait_for_auto_brt_active(std::condition_variable &);
 	void capture_loop(std::condition_variable&, int img_delta);
 	void brt_adjust_loop(std::condition_variable&, int cur_step);
-	void brt_animation_loop(int prev_step, int &cur_step, int target_step, Animation a);
+	int  brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a);
 };
 
 struct Brt
