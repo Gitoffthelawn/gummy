@@ -140,35 +140,33 @@ void apply_options(const Message &opts, Xorg &xorg, scrctl::Brt &brtctl, scrctl:
 		tempctl.notify();
 }
 
-int message_loop(Xorg &xorg, scrctl::Brt &brtctl, scrctl::Temp &tempctl)
+void init_fifo()
 {
 	if (mkfifo(fifo_name, S_IFIFO|0640) == 1) {
-		syslog(LOG_ERR, "unable to make fifo (err %d), aborting\n", errno);
-		return 1;
+		syslog(LOG_ERR, "mkfifo err %d, aborting\n", errno);
+		exit(1);
+	}
+}
+
+int message_loop(Xorg &xorg, scrctl::Brt &brtctl, scrctl::Temp &tempctl)
+{
+	std::ifstream fs(fifo_name);
+	if (fs.fail()) {
+		syslog(LOG_ERR, "unable to open fifo, aborting\n");
+		exit(1);
 	}
 
-	while (1) {
+	std::ostringstream ss;
+	ss << fs.rdbuf();
 
-		std::ifstream fs(fifo_name);
+	const std::string s(ss.str());
+	if (s == "stop")
+		return 0;
 
-		if (fs.fail()) {
-			syslog(LOG_ERR, "unable to open fifo, aborting\n");
-			return 1;
-		}
+	apply_options(Message(s), xorg, brtctl, tempctl);
+	cfg.write();
 
-		std::ostringstream ss;
-		ss << fs.rdbuf();
-		const std::string s(ss.str());
-
-		if (s == "stop") {
-			return 0;
-		}
-
-		apply_options(Message(s), xorg, brtctl, tempctl);
-		cfg.write();
-	}
-
-	return 0;
+	return message_loop(xorg, brtctl, tempctl);
 }
 
 int main(int argc, char **argv)
@@ -191,8 +189,13 @@ int main(int argc, char **argv)
 	// Init cfg
 	cfg.init(xorg.scr_count());
 
-	// Refresh gamma periodically
-	scrctl::Gamma_Refresh g(xorg);
+	// Init fifo
+	init_fifo();
+
+	scrctl::Gamma_Refresh g;
+
+	std::vector<std::thread> threads;
+	threads.emplace_back([&] { g.loop(xorg); });
 
 	// Control brightness
 	scrctl::Brt b(xorg);
@@ -200,5 +203,11 @@ int main(int argc, char **argv)
 	// Control temperature
 	scrctl::Temp t(xorg);
 
-	return message_loop(xorg, b, t);
+	message_loop(xorg, b, t);
+
+	b.stop();
+	g.stop();
+
+	for (auto &t : threads)
+		t.join();
 }

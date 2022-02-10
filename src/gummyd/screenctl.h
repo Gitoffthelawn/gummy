@@ -68,46 +68,52 @@ class Monitor
 public:
 	Monitor(Xorg* xorg, Sysfs::Backlight*, Sysfs::ALS*, int id);
 	Monitor(Monitor&&);
-	~Monitor();
+	void wait_auto_brt_active();
 	void notify();
 	void quit();
 private:
 	std::condition_variable _ss_cv;
-	std::mutex _brt_mtx;
-	Xorg *_xorg;
-	Sysfs::Backlight *_bl;
-	Sysfs::ALS *_als;	
-	int _id;
-	std::unique_ptr<std::thread> _thr;
-	
-	int  _current_step{};
-	int  _ss_brt;
-	bool _brt_needs_change{};
-	bool _force{};
-	bool _quit{};
+	std::mutex              _brt_mtx;
+	Xorg                    *_xorg;
+	Sysfs::Backlight        *_bl;
+	Sysfs::ALS              *_als;
+	int                     _id;
 
-	void capture();
-	void brt_loop(std::condition_variable&);
+	struct {
+		int ss_brt;
+		int cfg_min;
+		int cfg_max;
+		int cfg_offset;
+	} prev{0, 0, 0, 0};
+
+	int  _ss_brt;
+	bool _brt_needs_change;
+	bool _force;
+	bool _quit;
+
+	void capture_loop(std::condition_variable&, int img_delta);
+	void brt_loop(std::condition_variable&, int cur_step);
 };
 
 struct Brt
 {
-    	Brt(Xorg &);
+	Brt(Xorg &);
+	void stop();
 	std::vector<Sysfs::Backlight> backlights;
-	std::vector<Sysfs::ALS> als;
-	std::vector<Monitor> monitors;
+	std::vector<Sysfs::ALS>       als;
+	std::vector<std::thread>      threads;
+	std::vector<Monitor>          monitors;
 };
 
 class Gamma_Refresh
 {
 public:
-	Gamma_Refresh(Xorg&);
-	~Gamma_Refresh();
+	Gamma_Refresh();
+	void loop(Xorg&);
+	void stop();
 private:
 	std::condition_variable _cv;
-	std::unique_ptr<std::thread> _thr;
-	bool _quit{};
-	void loop(Xorg&);
+	bool _quit;
 };
 
 }
