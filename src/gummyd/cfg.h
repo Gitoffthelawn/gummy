@@ -66,7 +66,7 @@ struct Config
 	std::vector<Screen> screens;
 
 	std::string path();
-	void init(const int);
+	void init(size_t);
 	void read();
 	void from_json(const json&);
 	void write();

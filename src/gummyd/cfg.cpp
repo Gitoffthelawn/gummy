@@ -52,9 +52,13 @@ Config::Screen::Screen()
 {
 }
 
-void Config::init(const int detected_screens)
+void Config::init(size_t detected_screens)
 {
 	read();
+
+	// Remove unplugged screens from the config
+	while (screens.size() > detected_screens)
+		screens.pop_back();
 
 	int new_screens = detected_screens - screens.size();
 	while (new_screens--)
