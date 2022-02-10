@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <syslog.h>
 #include <libudev.h>
+#include <cmath>
 
 std::vector<Sysfs::Backlight> Sysfs::get_bl()
 {
@@ -33,6 +34,7 @@ std::vector<Sysfs::Backlight> Sysfs::get_bl()
 		bl.emplace_back(udev, s.path().generic_string());
 	}
 	udev_unref(udev);
+	Sysfs::get_als();
 	return bl;
 }
 
@@ -61,6 +63,11 @@ Sysfs::Device::Device(Device &&d) : _dev(d._dev)
 
 }
 
+std::string Sysfs::Device::path() const
+{
+	return udev_device_get_syspath(_dev);
+}
+
 Sysfs::Device::~Device()
 {
 	udev_device_unref(_dev);
@@ -68,7 +75,8 @@ Sysfs::Device::~Device()
 
 std::string Sysfs::Device::get(const std::string &attr) const
 {
-	return udev_device_get_sysattr_value(_dev, attr.c_str());
+	const char *s = udev_device_get_sysattr_value(_dev, attr.c_str());
+	return s ? s : "";
 }
 
 void Sysfs::Device::set(const std::string &attr, const std::string &val)
@@ -95,12 +103,19 @@ int Sysfs::Backlight::max_brt() const
 }
 
 Sysfs::ALS::ALS(udev *udev, const std::string &path)
-	: _dev(udev, path)
+	: _dev(udev, path),
+	  _lux_scale(1.0)
 {
-
+	std::string tmp(_dev.get("in_illuminance_scale"));
+	if (!tmp.empty()) 
+		_lux_scale = std::stod(tmp);
 }
 
 int Sysfs::ALS::get_lux() const
 {
-	return std::stoi(_dev.get("in_illuminance_raw"));
+	udev *u = udev_new();
+	Sysfs::Device d(u, _dev.path());
+	udev_unref(u);
+	const double lux = std::stod(d.get("in_illuminance_raw")) * _lux_scale; 
+	return int(lux);
 }

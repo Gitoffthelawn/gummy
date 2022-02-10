@@ -66,7 +66,7 @@ private:
 class Monitor
 {
 public:
-	Monitor(Xorg* xorg, Sysfs::Backlight *bl, int id);
+	Monitor(Xorg* xorg, Sysfs::Backlight*, Sysfs::ALS*, int id);
 	Monitor(Monitor&&);
 	~Monitor();
 	void notify();
@@ -75,7 +75,8 @@ private:
 	std::condition_variable _ss_cv;
 	std::mutex _brt_mtx;
 	Xorg *_xorg;
-	Sysfs::Backlight *_bl;	
+	Sysfs::Backlight *_bl;
+	Sysfs::ALS *_als;	
 	int _id;
 	std::unique_ptr<std::thread> _thr;
 	
@@ -93,6 +94,7 @@ struct Brt
 {
     	Brt(Xorg &);
 	std::vector<Sysfs::Backlight> backlights;
+	std::vector<Sysfs::ALS> als;
 	std::vector<Monitor> monitors;
 };
 

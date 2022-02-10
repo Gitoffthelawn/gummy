@@ -33,6 +33,7 @@ namespace Sysfs
 		~Device();
 		std::string get(const std::string &attr) const;
 		void        set(const std::string &attr, const std::string &val);
+		std::string path() const;
 	private:
 		udev_device *_dev;
 	};
@@ -55,6 +56,7 @@ namespace Sysfs
 		int get_lux() const;
 	private:
 		Device _dev;
+		double _lux_scale;
 	};
 
 	std::vector<Backlight> get_bl();

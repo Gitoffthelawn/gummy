@@ -75,7 +75,7 @@ void Config::init(const int detected_screens)
 void Config::read()
 {
 	std::ifstream fs(_path, std::fstream::in | std::fstream::app);
-\
+
 	if (fs.fail()) {
 		syslog(LOG_ERR, "Unable to open config\n");
 		return;

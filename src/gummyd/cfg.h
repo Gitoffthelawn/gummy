@@ -26,9 +26,9 @@ using json = nlohmann::json;
 
 struct Config
 {
-    struct Screen
+	struct Screen
 	{
-	    Screen();
+		Screen();
 		Screen(
 		    bool brt_auto,
 		    int brt_auto_min,
@@ -53,7 +53,7 @@ struct Config
 		int temp_step;
 	};
 
-    Config();
+	Config();
 	const std::string _path;
 	int brt_auto_fps;
 	bool temp_auto;
@@ -77,7 +77,7 @@ extern Config cfg;
 
 struct Message
 {
-    Message(const std::string &json);
+	Message(const std::string &json);
 	int scr_no               = -1;
 	int brt_perc             = -1;
 	int brt_auto             = -1;

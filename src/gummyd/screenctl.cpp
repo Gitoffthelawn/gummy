@@ -270,11 +270,15 @@ void scrctl::Temp::notify_on_wakeup()
 }
 
 scrctl::Brt::Brt(Xorg &xorg)
-     : backlights(Sysfs::get_bl())
+     : backlights(Sysfs::get_bl()),
+       als(Sysfs::get_als())
 {
 	monitors.reserve(xorg.scr_count());
 	for (size_t i = 0; i < xorg.scr_count(); ++i) {
-		monitors.emplace_back(&xorg, &backlights[i] ? &backlights[i] : nullptr, i);
+		monitors.emplace_back(&xorg, 
+				&backlights[i] ? &backlights[i] : nullptr,
+			       	&als[0] ? &als[0] : nullptr,
+				i);
 	}
 	assert(monitors.size() == xorg.scr_count());
 }
@@ -319,9 +323,13 @@ void scrctl::Gamma_Refresh::loop(Xorg &xorg)
 	}
 }
 
-scrctl::Monitor::Monitor(Xorg* xorg, Sysfs::Backlight *bl, int id)
+scrctl::Monitor::Monitor(Xorg* xorg, 
+		Sysfs::Backlight *bl,
+		Sysfs::ALS *als,
+		int id)
    :  _xorg(xorg),
       _bl(bl),
+      _als(als),
       _id(id),
       _thr(std::make_unique<std::thread>([this] { capture(); }))
 {
