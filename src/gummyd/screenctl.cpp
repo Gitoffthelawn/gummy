@@ -284,7 +284,7 @@ scrctl::Brt::Brt(Xorg &xorg)
 	}
 
 	for (auto &m : monitors)
-		threads.emplace_back([&] { m.wait_auto_brt_active(); });
+		threads.emplace_back([&] { m.init(); });
 
 	assert(monitors.size() == xorg.scr_count());
 }
@@ -336,38 +336,35 @@ void scrctl::Monitor::notify()
 	_ss_cv.notify_one();
 }
 
-void scrctl::Monitor::wait_auto_brt_active()
+void scrctl::Monitor::init()
 {
 	std::condition_variable brt_cv;
-	std::thread brt_thr([&] { brt_loop(brt_cv, brt_steps_max); });
-
-	std::mutex mtx;
-	while (true) {
-		{
-			std::unique_lock lock(mtx);
-			_ss_cv.wait(lock, [&] {
-				return cfg.screens[_id].brt_auto || _quit;
-			});
-		}
-
-		if (_quit)
-			break;
-
-		if (cfg.screens[_id].brt_auto)
-			_force = true;
-		else
-			continue;
-
-		capture_loop(brt_cv, 0);
-	}
-
+	std::thread brt_thr([&] { brt_adjust_loop(brt_cv, brt_steps_max); });
+	wait_for_auto_brt_active(brt_cv);
 	{
 		std::lock_guard lock(_brt_mtx);
 		_brt_needs_change = true;
 	}
-
 	brt_cv.notify_one();
 	brt_thr.join();
+}
+
+void scrctl::Monitor::wait_for_auto_brt_active(std::condition_variable &brt_cv)
+{
+	std::mutex mtx;
+	{
+		std::unique_lock lock(mtx);
+		_ss_cv.wait(lock, [&] {
+			return cfg.screens[_id].brt_auto || _quit;
+		});
+	}
+
+	if (_quit)
+		return;
+
+	_force = true;
+	capture_loop(brt_cv, 0);
+	wait_for_auto_brt_active(brt_cv);
 }
 
 void scrctl::Monitor::capture_loop(std::condition_variable &brt_cv, int img_delta)
@@ -407,12 +404,8 @@ void scrctl::Monitor::capture_loop(std::condition_variable &brt_cv, int img_delt
 	capture_loop(brt_cv, img_delta);
 }
 
-void scrctl::Monitor::brt_loop(std::condition_variable &brt_cv, int cur_step)
+void scrctl::Monitor::brt_adjust_loop(std::condition_variable &brt_cv, int cur_step)
 {
-	using namespace std::this_thread;
-	using namespace std::chrono;
-	using namespace std::chrono_literals;
-
 	int ss_brt;
 	{
 		std::unique_lock lock(_brt_mtx);
@@ -435,56 +428,55 @@ void scrctl::Monitor::brt_loop(std::condition_variable &brt_cv, int cur_step)
 	const int target_step = std::clamp(
 	            brt_steps_max - ss_step + offset_step,
 	            cfg.screens[_id].brt_auto_min,
-	            cfg.screens[_id].brt_auto_max
-	            );
+	            cfg.screens[_id].brt_auto_max);
 
 	if (cur_step == target_step && !_force)
-		return brt_loop(brt_cv, cur_step);
+		return brt_adjust_loop(brt_cv, cur_step);
 
+	// There is an internal smooth system with backlights, avoid animations for now.
 	if (_bl) {
 		cur_step = target_step;
 		_bl->set(cur_step * _bl->max_brt() / brt_steps_max);
-		return brt_loop(brt_cv, cur_step);
+	} else {
+		Animation a;
+		a.elapsed    = 0.;
+		a.fps        = cfg.brt_auto_fps;
+		a.slice      = 1. / a.fps;
+		a.start_step = cur_step;
+		a.diff       = target_step - a.start_step;
+		a.duration_s = double(cfg.screens[_id].brt_auto_speed) / 1000;
+		brt_animation_loop(-1, cur_step, target_step, a);
 	}
 
-	const int fps            = cfg.brt_auto_fps;
-	const double slice       = 1. / fps;
-	const int start_step     = cur_step;
-	const int diff           = target_step - start_step;
-	const double animation_s = double(cfg.screens[_id].brt_auto_speed) / 1000;
+	brt_adjust_loop(brt_cv, cur_step);
+}
 
-	int prev_step = -1;
-	double time = 0;
+void scrctl::Monitor::brt_animation_loop(int prev_step, int &cur_step, int target_step, Animation a)
+{
+	using namespace std::this_thread;
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
 
-	while (true) {
+	if (cur_step == target_step && !_force)
+		return;
 
-		if (cur_step == target_step && !_force)
-			break;
+	_force = false; // warning: shared
 
-		_force = false; // warning: shared
+	if (_brt_needs_change || !cfg.screens[_id].brt_auto || _quit)
+		return;
 
-		if (_brt_needs_change || !cfg.screens[_id].brt_auto || _quit)
-			break;
+	a.elapsed += a.slice;
+	cur_step = int(std::round(ease_out_expo(a.elapsed, a.start_step, a.diff, a.duration_s)));
 
-		time += slice;
-		cur_step = int(std::round(
-		                   ease_out_expo(time, start_step, diff, animation_s))
-		               );
-
-		if (cur_step != prev_step) {
-			cfg.screens[_id].brt_step = cur_step;
-			_xorg->set_gamma(
-			            _id,
-			            cur_step,
-			            cfg.screens[_id].temp_step
-			            );
-		}
-
-		prev_step = cur_step;
-		sleep_for(milliseconds(1000 / fps));
+	if (cur_step != prev_step) {
+		cfg.screens[_id].brt_step = cur_step;
+		_xorg->set_gamma(_id,
+		                 cur_step,
+		                 cfg.screens[_id].temp_step);
 	}
 
-	brt_loop(brt_cv, cur_step);
+	sleep_for(milliseconds(1000 / a.fps));
+	brt_animation_loop(cur_step, cur_step, target_step, a);
 }
 
 scrctl::Gamma_Refresh::Gamma_Refresh() : _quit(false)

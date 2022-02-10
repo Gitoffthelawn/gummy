@@ -23,16 +23,26 @@
 #include <cstdint>
 
 int set_lock();
-int calc_brightness(const uint8_t *buf,
-                    const uint64_t buf_sz,
-                    const int bytes_per_pixel = 4,
-                    const int stride = 1024);
+int calc_brightness(uint8_t *buf,
+                    uint64_t buf_sz,
+                    int bytes_per_pixel = 4,
+                    int stride = 1024);
 
-double lerp(const double x, const double a, const double b);
-double normalize(const double x, const double a, const double b);
-double remap(const double x, const double a, const double b, const double ay, const double by);
-double step_to_kelvin(const int step, const size_t color_ch);
-double ease_out_expo(const double t, const double b , const double c, const double d);
-double ease_in_out_quad(double t, const double b, const double c, const double d);
+double lerp(double x, double a, double b);
+double normalize(double x, double a, double b);
+double remap(double x, double a, double b, double ay, double by);
+double step_to_kelvin(int step, size_t color_ch);
+
+struct Animation
+{
+	double elapsed;
+	double slice;
+	double duration_s;
+	int fps;
+	int start_step;
+	int diff;
+};
+double ease_out_expo(double t, double b , double c, double d);
+double ease_in_out_quad(double t, double b, double c, double d);
 
 #endif // UTILS_H

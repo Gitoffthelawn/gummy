@@ -22,6 +22,7 @@
 #include "xorg.h"
 #include "sysfs.h"
 #include "../common/defs.h"
+#include "../common/utils.h"
 
 #include <thread>
 #include <condition_variable>
@@ -68,7 +69,7 @@ class Monitor
 public:
 	Monitor(Xorg* xorg, Sysfs::Backlight*, Sysfs::ALS*, int id);
 	Monitor(Monitor&&);
-	void wait_auto_brt_active();
+	void init();
 	void notify();
 	void quit();
 private:
@@ -91,8 +92,10 @@ private:
 	bool _force;
 	bool _quit;
 
+	void wait_for_auto_brt_active(std::condition_variable &);
 	void capture_loop(std::condition_variable&, int img_delta);
-	void brt_loop(std::condition_variable&, int cur_step);
+	void brt_adjust_loop(std::condition_variable&, int cur_step);
+	void brt_animation_loop(int prev_step, int &cur_step, int target_step, Animation a);
 };
 
 struct Brt

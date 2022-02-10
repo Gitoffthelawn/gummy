@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <cmath>
 
-int calc_brightness(const uint8_t *buf, const uint64_t buf_sz, const int bytes_per_pixel, const int stride)
+int calc_brightness(uint8_t *buf, uint64_t buf_sz, int bytes_per_pixel, int stride)
 {
 	uint64_t rgb[3] {};
 	for (uint64_t i = 0, inc = stride * bytes_per_pixel; i < buf_sz; i += inc) {
@@ -34,32 +34,32 @@ int calc_brightness(const uint8_t *buf, const uint64_t buf_sz, const int bytes_p
 	return (rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722) * stride / (buf_sz / bytes_per_pixel);
 }
 
-double lerp(const double x, const double a, const double b)
+double lerp(double x, double a, double b)
 {
 	return (1 - x) * a + x * b;
 }
 
-double normalize(const double x, const double a, const double b)
+double normalize(double x, double a, double b)
 {
 	return (x - a) / (b - a);
 }
 
-double remap(const double x, const double a, const double b, const double ay, const double by)
+double remap(double x, double a, double b, double ay, double by)
 {
 	return lerp(normalize(x, a, b), ay, by);
 }
 
-double step_to_kelvin(const int step, const size_t color_ch)
+double step_to_kelvin(int step, size_t color_ch)
 {
 	return remap(step, 0, temp_steps_max, 1, ingo_thies_table[color_ch]);
 };
 
-double ease_out_expo(const double t, const double b , const double c, const double d)
+double ease_out_expo(double t, double b , double c, double d)
 {
 	return (t == d) ? b + c : c * (-pow(2, -10 * t / d) + 1) + b;
 }
 
-double ease_in_out_quad(double t, const double b, const double c, const double d)
+double ease_in_out_quad(double t, double b, double c, double d)
 {
 	if ((t /= d / 2) < 1)
 		return c / 2 * t * t + b;
