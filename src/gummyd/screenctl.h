@@ -58,7 +58,9 @@ private:
 	int  _current_step;
 	bool _force;
 	bool _quit;
+	bool _tick;
 
+	void clock(std::condition_variable &cv, std::mutex&);
 	void temp_loop(Xorg&);
 	void notify_on_wakeup();
 	void temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg&);

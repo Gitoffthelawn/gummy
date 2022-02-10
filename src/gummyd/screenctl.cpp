@@ -64,7 +64,8 @@ bool is_daytime(const Timestamps &ts)
 scrctl::Temp::Temp()
     : _current_step(0),
       _force(false),
-      _quit(false)
+      _quit(false),
+      _tick(false)
 {
 }
 
@@ -97,48 +98,25 @@ void scrctl::Temp::temp_loop(Xorg &xorg)
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	bool needs_change = cfg.temp_auto;
-
 	std::mutex temp_mtx;
 	std::condition_variable clock_cv;
-
-	std::thread clock([&] {
-		std::mutex clock_mtx;
-		while (true) {
-			{
-				std::unique_lock lk(clock_mtx);
-				clock_cv.wait_until(lk, system_clock::now() + 60s, [&] {
-					return _quit;
-				});
-			}
-
-			if (_quit)
-				return;
-
-			if (!cfg.temp_auto)
-				continue;
-
-			{
-				std::lock_guard lk(temp_mtx);
-				needs_change = true;
-			}
-
-			_temp_cv.notify_one();
-		}
-	});
-
-	bool first_step = true;
+	std::thread clock_thr([&] { clock(clock_cv, temp_mtx); });
 
 	Timestamps ts;
 	update_times(ts);
+
+	bool needs_change = cfg.temp_auto;
+	bool first_step = true;
 
 	while (true) {
 		{
 			std::unique_lock<std::mutex> lock(temp_mtx);
 
 			_temp_cv.wait(lock, [&] {
-				return needs_change || !first_step || _force || _quit;
+				return needs_change || !first_step || _tick || _force || _quit;
 			});
+
+			_tick = false;
 
 			if (_quit)
 				break;
@@ -216,7 +194,33 @@ void scrctl::Temp::temp_loop(Xorg &xorg)
 	}
 
 	clock_cv.notify_one();
-	clock.join();
+	clock_thr.join();
+}
+
+void scrctl::Temp::clock(std::condition_variable &cv, std::mutex &temp_mtx)
+{
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+
+	std::mutex mtx;
+
+	{
+		std::unique_lock lk(mtx);
+		cv.wait_until(lk, system_clock::now() + 60s, [&] {
+			return _quit;
+		});
+	}
+
+	if (_quit || !cfg.temp_auto)
+		return;
+
+	{
+		std::lock_guard lk(temp_mtx);
+		_tick = true;
+	}
+
+	_temp_cv.notify_one();
+	clock(cv, mtx);
 }
 
 void scrctl::Temp::temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg &xorg)
