@@ -41,15 +41,21 @@ std::vector<Sysfs::Backlight> Sysfs::get_bl()
 std::vector<Sysfs::ALS> Sysfs::get_als()
 {
 	namespace fs = std::filesystem;
+	std::string als_path = "/sys/bus/iio/devices";
 	std::vector<Sysfs::ALS> als;
+
+	if (!fs::exists(als_path))
+		return als;
+
 	udev *udev = udev_new();
-	for (const auto &s : fs::directory_iterator("/sys/bus/iio/devices")) {  
+	for (const auto &s : fs::directory_iterator(als_path)) {
 		const auto f = s.path().stem().string(); 
 		if (f.find("iio:device") == std::string::npos)
 			continue;
 		als.emplace_back(udev, s.path());
 	}
 	udev_unref(udev);
+
 	return als;
 }
 
