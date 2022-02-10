@@ -33,7 +33,7 @@ struct Timestamps {
 	std::time_t sunrise;
 	std::time_t sunset;
 };
-void update_times(Timestamps &ts);
+void timestamps_update(Timestamps &ts);
 bool is_daytime(const Timestamps &ts);
 
 namespace scrctl {
@@ -48,7 +48,7 @@ class Temp
 {
 public:
 	Temp();
-	void start(Xorg&);
+	void init(Xorg&);
 	int  current_step() const;
 	void notify();
 	void stop();
@@ -56,12 +56,14 @@ private:
 	std::condition_variable _temp_cv;
 	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
 	int  _current_step;
-	bool _force;
+	bool _notified;
 	bool _quit;
 	bool _tick;
 
+	void start(Xorg&);
 	void clock(std::condition_variable &cv, std::mutex&);
-	void temp_loop(Xorg&);
+	void check_auto_temp_loop(Xorg&, std::mutex&);
+	void temp_loop(Xorg&, std::mutex&, Timestamps&, bool first_step);
 	void notify_on_wakeup();
 	void temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg&);
 };
@@ -96,7 +98,7 @@ private:
 	bool _force;
 	bool _quit;
 
-	void wait_for_auto_brt_active(std::condition_variable &);
+	void check_auto_brt_loop(std::condition_variable &);
 	void brt_adjust_loop(std::condition_variable&, int cur_step);
 	int  brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a);
 };

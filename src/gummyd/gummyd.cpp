@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 	threads.reserve(3);
 	threads.emplace_back([&] { g.loop(xorg); });
 	threads.emplace_back([&] { b.start(); });
-	threads.emplace_back([&] { t.start(xorg); });
+	threads.emplace_back([&] { t.init(xorg); });
 
 	message_loop(xorg, b, t);
 

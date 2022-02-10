@@ -25,7 +25,7 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <syslog.h>
 
-void update_times(Timestamps &ts)
+void timestamps_update(Timestamps &ts)
 {
 	// Get current timestamp
 	ts.cur = std::time(nullptr);
@@ -63,21 +63,21 @@ bool is_daytime(const Timestamps &ts)
 
 scrctl::Temp::Temp()
     : _current_step(0),
-      _force(false),
+      _notified(false),
       _quit(false),
       _tick(false)
 {
 }
 
-void scrctl::Temp::start(Xorg &xorg)
+void scrctl::Temp::init(Xorg &xorg)
 {
+	start(xorg);
 	notify_on_wakeup();
-	temp_loop(xorg);
 }
 
 void scrctl::Temp::notify()
 {
-	_force = true;
+	_notified = true;
 	_temp_cv.notify_one();
 }
 
@@ -92,95 +92,93 @@ int scrctl::Temp::current_step() const
 	return _current_step;
 }
 
-void scrctl::Temp::temp_loop(Xorg &xorg)
+void scrctl::Temp::start(Xorg &xorg)
 {
-	using namespace std::this_thread;
-	using namespace std::chrono;
-	using namespace std::chrono_literals;
-
 	std::mutex temp_mtx;
 	std::condition_variable clock_cv;
 	std::thread clock_thr([&] { clock(clock_cv, temp_mtx); });
 
+	check_auto_temp_loop(xorg, temp_mtx);
+
+	clock_cv.notify_one();
+	clock_thr.join();
+}
+
+void scrctl::Temp::check_auto_temp_loop(Xorg &xorg, std::mutex &temp_mtx)
+{
+	std::mutex mtx;
+
+	{
+		std::unique_lock lk(mtx);
+		_temp_cv.wait(lk, [&] {
+			return cfg.temp_auto || _quit;
+		});
+	}
+
+	if (_quit)
+		return;
+
 	Timestamps ts;
-	update_times(ts);
+	timestamps_update(ts);
+	_tick = true;
+	temp_loop(xorg, temp_mtx, ts, true);
 
-	bool needs_change = cfg.temp_auto;
-	bool first_step = true;
+	check_auto_temp_loop(xorg, temp_mtx);
+}
 
-	while (true) {
-		{
-			std::unique_lock<std::mutex> lock(temp_mtx);
-
-			_temp_cv.wait(lock, [&] {
-				return needs_change || !first_step || _tick || _force || _quit;
-			});
-
-			_tick = false;
-
-			if (_quit)
-				break;
-
-			if (_force) {
-				update_times(ts);
-				_force = false;
-				first_step = true;
-			}
-
-			needs_change = false;
-		}
-
-		if (!cfg.temp_auto)
-			continue;
-
-		const double adaptation_time_s = double(cfg.temp_auto_speed) * 60;
-
-		ts.cur = std::time(nullptr);
-
-		const bool daytime = is_daytime(ts);
-		int target_temp;
-		long tmp;
-
-		if (daytime) {
-			target_temp = cfg.temp_auto_high;
-			tmp = ts.sunrise;
-		} else {
-			target_temp = cfg.temp_auto_low;
-			tmp = ts.sunset;
-		}
-
-		int time_since_start_s = std::abs(ts.cur - tmp);
-
-		if (time_since_start_s > adaptation_time_s)
-			time_since_start_s = adaptation_time_s;
-
-		double animation_s = 2;
-
-		if (first_step) {
-			if (daytime) {
-				target_temp = remap(
-				    time_since_start_s, 0, adaptation_time_s,
-				    cfg.temp_auto_low, cfg.temp_auto_high
-				);
-			} else {
-				target_temp = remap(
-				    time_since_start_s, 0, adaptation_time_s,
-				    cfg.temp_auto_high, cfg.temp_auto_low
-				);
-			}
-		} else {
-			animation_s = adaptation_time_s - time_since_start_s;
-			if (animation_s < 2)
-				animation_s = 2;
-		}
-
-		const int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
-
-		if (_current_step == target_step) {
+void scrctl::Temp::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, bool first_step)
+{
+	{
+		std::unique_lock lk(temp_mtx);
+		_temp_cv.wait(lk, [&] {
+			return !first_step || _tick || _notified || _quit;
+		});
+		if (_quit)
+			return;
+		if (_notified) {
+			_notified = false;
 			first_step = true;
-			continue;
+			timestamps_update(ts);
 		}
+		_tick = false;
+	}
 
+	if (!cfg.temp_auto)
+		return;
+
+	ts.cur = std::time(nullptr);
+	const bool daytime = is_daytime(ts);
+
+	int target_temp;
+	std::time_t time_to_subtract;
+	if (daytime) {
+		target_temp = cfg.temp_auto_high;
+		time_to_subtract = ts.sunrise;
+	} else {
+		target_temp = cfg.temp_auto_low;
+		time_to_subtract = ts.sunset;
+	}
+
+	const double adaptation_time_s = double(cfg.temp_auto_speed) * 60;
+	int time_since_start_s = std::abs(ts.cur - time_to_subtract);
+	if (time_since_start_s > adaptation_time_s)
+		time_since_start_s = adaptation_time_s;
+
+	double animation_s = 2;
+	if (first_step) {
+		if (daytime) {
+			target_temp = remap(time_since_start_s, 0, adaptation_time_s, cfg.temp_auto_low, cfg.temp_auto_high);
+		} else {
+			target_temp = remap(time_since_start_s, 0, adaptation_time_s, cfg.temp_auto_high, cfg.temp_auto_low);
+		}
+	} else {
+		animation_s = adaptation_time_s - time_since_start_s;
+		if (animation_s < 2)
+			animation_s = 2;
+	}
+
+	const int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
+	if (_current_step != target_step) {
 		Animation a;
 		a.elapsed    = 0.;
 		a.fps        = cfg.temp_auto_fps;
@@ -188,13 +186,10 @@ void scrctl::Temp::temp_loop(Xorg &xorg)
 		a.duration_s = animation_s;
 		a.start_step = _current_step;
 		a.diff       = target_step - a.start_step;
-
 		temp_animation_loop(-1, _current_step, target_step, a, xorg);
-		first_step = false;
 	}
 
-	clock_cv.notify_one();
-	clock_thr.join();
+	temp_loop(xorg, temp_mtx, ts, !first_step);
 }
 
 void scrctl::Temp::clock(std::condition_variable &cv, std::mutex &temp_mtx)
@@ -228,7 +223,8 @@ void scrctl::Temp::temp_animation_loop(int prev_step, int cur_step, int target_s
 	using namespace std::this_thread;
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
-	if (_current_step == target_step || _force || !cfg.temp_auto || _quit)
+
+	if (_current_step == target_step || _notified || !cfg.temp_auto || _quit)
 		return;
 
 	a.elapsed += a.slice;
@@ -345,7 +341,7 @@ void scrctl::Monitor::init()
 {
 	std::condition_variable brt_cv;
 	std::thread brt_thr([&] { brt_adjust_loop(brt_cv, brt_steps_max); });
-	wait_for_auto_brt_active(brt_cv);
+	check_auto_brt_loop(brt_cv);
 	{
 		std::lock_guard lock(_brt_mtx);
 		_brt_needs_change = true;
@@ -354,7 +350,7 @@ void scrctl::Monitor::init()
 	brt_thr.join();
 }
 
-void scrctl::Monitor::wait_for_auto_brt_active(std::condition_variable &brt_cv)
+void scrctl::Monitor::check_auto_brt_loop(std::condition_variable &brt_cv)
 {
 	std::mutex mtx;
 	{
@@ -369,7 +365,7 @@ void scrctl::Monitor::wait_for_auto_brt_active(std::condition_variable &brt_cv)
 
 	_force = true;
 	capture_loop(brt_cv, 0);
-	wait_for_auto_brt_active(brt_cv);
+	check_auto_brt_loop(brt_cv);
 }
 
 void scrctl::Monitor::capture_loop(std::condition_variable &brt_cv, int img_delta)
