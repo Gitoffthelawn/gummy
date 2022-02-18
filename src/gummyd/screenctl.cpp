@@ -307,12 +307,12 @@ scrctl::Monitor::Monitor(Xorg *xorg,
       als(als),
       id(id),
       ss_brt(0),
-      flags({0,0,0})
+      flags({!cfg.screens[id].brt_auto,0,0})
 {
 	if (!backlight) {
 		xorg->set_gamma(id,
-		                 brt_steps_max,
-		                 cfg.screens[id].temp_step);
+		                brt_steps_max,
+		                cfg.screens[id].temp_step);
 	}
 }
 
