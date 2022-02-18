@@ -29,7 +29,7 @@
 #include <fcntl.h>
 #include <fstream>
 
-void apply_options(const Message &opts, Xorg &xorg, scrctl::Brt &brtctl, scrctl::Temp &tempctl)
+void apply_options(const Message &opts, Xorg &xorg, scrctl::Brightness_Manager &brtctl, scrctl::Temp_Manager &tempctl)
 {
 	bool notify_temp = false;
 
@@ -61,8 +61,8 @@ void apply_options(const Message &opts, Xorg &xorg, scrctl::Brt &brtctl, scrctl:
 		}
 	}
 
-	int start = 0;
-	int end = xorg.scr_count() - 1;
+	size_t start = 0;
+	size_t end = xorg.scr_count() - 1;
 
 	if (opts.scr_no != -1) {
 		if (opts.scr_no > end) {
@@ -80,18 +80,18 @@ void apply_options(const Message &opts, Xorg &xorg, scrctl::Brt &brtctl, scrctl:
 		}
 	}
 
-	for (int i = start; i <= end; ++i) {
+	for (size_t i = start; i <= end; ++i) {
 
 		if (opts.brt_auto != -1) {
 			cfg.screens[i].brt_auto = bool(opts.brt_auto);
-			brtctl.monitors[i].notify();
+			monitor_toggle(brtctl.monitors[i], opts.brt_auto);
 		}
 
 		if (opts.brt_perc != -1) {
 			cfg.screens[i].brt_auto = false;
-			brtctl.monitors[i].notify();
+			monitor_pause(brtctl.monitors[i]);
 
-			if (&brtctl.backlights[i]) {
+			if (i < brtctl.backlights.size()) {
 				cfg.screens[i].brt_step = brt_steps_max;
 				brtctl.backlights[i].set(opts.brt_perc * 255 / 100);
 			} else {
@@ -148,7 +148,7 @@ void init_fifo()
 	}
 }
 
-int message_loop(Xorg &xorg, scrctl::Brt &brtctl, scrctl::Temp &tempctl)
+int message_loop(Xorg &xorg, scrctl::Brightness_Manager &brtctl, scrctl::Temp_Manager &tempctl)
 {
 	std::ifstream fs(fifo_name);
 	if (fs.fail()) {
@@ -193,8 +193,8 @@ int main(int argc, char **argv)
 	init_fifo();
 
 	scrctl::Gamma_Refresh g;
-	scrctl::Brt           b(xorg);
-	scrctl::Temp          t;
+	scrctl::Brightness_Manager b(xorg);
+	scrctl::Temp_Manager t;
 
 	std::vector<std::thread> threads;
 	threads.reserve(3);

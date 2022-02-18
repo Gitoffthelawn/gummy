@@ -42,6 +42,8 @@ struct Animation
 	int start_step;
 	int diff;
 };
+Animation animation_init(int start, int end, int fps, int duration_ms);
+
 double ease_out_expo(double t, double b , double c, double d);
 double ease_in_out_quad(double t, double b, double c, double d);
 

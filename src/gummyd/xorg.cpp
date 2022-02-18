@@ -76,7 +76,7 @@ Xorg::XCB::~XCB()
 }
 
 Xorg::Output::Output(const XLib &xlib,
-               const xcb_randr_crtc_t c,
+               xcb_randr_crtc_t c,
                xcb_randr_get_crtc_info_reply_t *i)
     : crtc(c),
       _info(i),
@@ -106,7 +106,7 @@ Xorg::Output::Output(const XLib &xlib,
 	XShmAttach(xlib.dsp, &_shminfo);
 }
 
-void Xorg::Output::set_ramp_size(const int sz)
+void Xorg::Output::set_ramp_size(int sz)
 {
 	_ramp_sz = sz;
 	_ramps.resize(3 * size_t(sz) * sizeof(uint16_t));
@@ -150,17 +150,17 @@ Xorg::Xorg()
 	}
 }
 
-int Xorg::get_screen_brightness(const int scr_idx) const
+int Xorg::get_screen_brightness(int scr_idx) const
 {
 	return _outputs[scr_idx].get_image_brightness(_xlib);
 }
 
-void Xorg::set_gamma(const int scr_idx, const int brt_step, const int temp_step)
+void Xorg::set_gamma(int scr_idx, int brt_step, int temp_step)
 {
 	_outputs[scr_idx].apply_gamma_ramp(_xcb, brt_step, temp_step);
 }
 
-void Xorg::Output::apply_gamma_ramp(const XCB &xcb, const int brt_step, const int temp_step)
+void Xorg::Output::apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step)
 {
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.

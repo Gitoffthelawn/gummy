@@ -32,9 +32,9 @@
 
 class Xorg
 {
-    struct XLib
+	struct XLib
 	{
-	    XLib();
+		XLib();
 		~XLib();
 		Display *dsp;
 		Screen  *screen;
@@ -44,7 +44,7 @@ class Xorg
 
 	struct XCB
 	{
-	    XCB();
+		XCB();
 		~XCB();
 		xcb_connection_t *conn;
 		xcb_screen_t *screen;
@@ -56,16 +56,16 @@ class Xorg
 	class Output
 	{
 	public:
-	    Output(const XLib &xlib,
+		Output(const XLib &xlib,
 		       const xcb_randr_crtc_t c,
 		       xcb_randr_get_crtc_info_reply_t *i);
 		~Output();
 
 		xcb_randr_crtc_t crtc;
 
-		void set_ramp_size(const int);
+		void set_ramp_size(int);
 		int  get_image_brightness(const XLib &xlib) const;
-		void apply_gamma_ramp(const XCB &xcb, const int brt_step, const int temp_step);
+		void apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step);
 	private:
 		XShmSegmentInfo _shminfo;
 		std::vector<uint16_t> _ramps;
@@ -78,8 +78,8 @@ class Xorg
 	public:
 	    Xorg();
 		size_t scr_count() const;
-		int  get_screen_brightness(const int scr_idx) const;
-		void set_gamma(const int scr_idx, const int brt, const int temp);
+		int  get_screen_brightness(int scr_idx) const;
+		void set_gamma(int scr_idx, int brt, int temp);
 	private:
 		XLib _xlib;
 		XCB  _xcb;

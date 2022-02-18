@@ -61,7 +61,7 @@ bool is_daytime(const Timestamps &ts)
 	return ts.cur >= ts.sunrise && ts.cur < ts.sunset;
 }
 
-scrctl::Temp::Temp()
+scrctl::Temp_Manager::Temp_Manager()
     : _current_step(0),
       _notified(false),
       _quit(false),
@@ -69,30 +69,30 @@ scrctl::Temp::Temp()
 {
 }
 
-void scrctl::Temp::init(Xorg &xorg)
+void scrctl::Temp_Manager::init(Xorg &xorg)
 {
 	start(xorg);
 	notify_on_wakeup();
 }
 
-void scrctl::Temp::notify()
+void scrctl::Temp_Manager::notify()
 {
 	_notified = true;
 	_temp_cv.notify_one();
 }
 
-void scrctl::Temp::stop()
+void scrctl::Temp_Manager::stop()
 {
 	_quit = true;
 	_temp_cv.notify_one();
 }
 
-int scrctl::Temp::current_step() const
+int scrctl::Temp_Manager::current_step() const
 {
 	return _current_step;
 }
 
-void scrctl::Temp::start(Xorg &xorg)
+void scrctl::Temp_Manager::start(Xorg &xorg)
 {
 	std::mutex temp_mtx;
 	std::condition_variable clock_cv;
@@ -104,7 +104,7 @@ void scrctl::Temp::start(Xorg &xorg)
 	clock_thr.join();
 }
 
-void scrctl::Temp::check_auto_temp_loop(Xorg &xorg, std::mutex &temp_mtx)
+void scrctl::Temp_Manager::check_auto_temp_loop(Xorg &xorg, std::mutex &temp_mtx)
 {
 	std::mutex mtx;
 
@@ -126,18 +126,18 @@ void scrctl::Temp::check_auto_temp_loop(Xorg &xorg, std::mutex &temp_mtx)
 	check_auto_temp_loop(xorg, temp_mtx);
 }
 
-void scrctl::Temp::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, bool first_step)
+void scrctl::Temp_Manager::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, bool catch_up)
 {
 	{
 		std::unique_lock lk(temp_mtx);
 		_temp_cv.wait(lk, [&] {
-			return !first_step || _tick || _notified || _quit;
+			return !catch_up || _tick || _notified || _quit;
 		});
 		if (_quit)
 			return;
 		if (_notified) {
 			_notified = false;
-			first_step = true;
+			catch_up = true;
 			timestamps_update(ts);
 		}
 		_tick = false;
@@ -165,7 +165,7 @@ void scrctl::Temp::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, b
 		time_since_start_s = adaptation_time_s;
 
 	double animation_s = 2;
-	if (first_step) {
+	if (catch_up) {
 		if (daytime) {
 			target_temp = remap(time_since_start_s, 0, adaptation_time_s, cfg.temp_auto_low, cfg.temp_auto_high);
 		} else {
@@ -189,10 +189,10 @@ void scrctl::Temp::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, b
 		temp_animation_loop(-1, _current_step, target_step, a, xorg);
 	}
 
-	temp_loop(xorg, temp_mtx, ts, !first_step);
+	temp_loop(xorg, temp_mtx, ts, !catch_up);
 }
 
-void scrctl::Temp::clock(std::condition_variable &cv, std::mutex &temp_mtx)
+void scrctl::Temp_Manager::clock(std::condition_variable &cv, std::mutex &temp_mtx)
 {
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
@@ -218,7 +218,7 @@ void scrctl::Temp::clock(std::condition_variable &cv, std::mutex &temp_mtx)
 	clock(cv, mtx);
 }
 
-void scrctl::Temp::temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg &xorg)
+void scrctl::Temp_Manager::temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg &xorg)
 {
 	using namespace std::this_thread;
 	using namespace std::chrono;
@@ -245,7 +245,7 @@ void scrctl::Temp::temp_animation_loop(int prev_step, int cur_step, int target_s
 	temp_animation_loop(cur_step, cur_step, target_step, a, xorg);
 }
 
-void scrctl::Temp::notify_on_wakeup()
+void scrctl::Temp_Manager::notify_on_wakeup()
 {
 	const std::string service("org.freedesktop.login1");
 	const std::string obj_path("/org/freedesktop/login1");
@@ -267,7 +267,7 @@ void scrctl::Temp::notify_on_wakeup()
 	}
 }
 
-scrctl::Brt::Brt(Xorg &xorg)
+scrctl::Brightness_Manager::Brightness_Manager(Xorg &xorg)
      : backlights(Sysfs::get_bl()),
        als(Sysfs::get_als())
 {
@@ -276,208 +276,202 @@ scrctl::Brt::Brt(Xorg &xorg)
 
 	for (size_t i = 0; i < xorg.scr_count(); ++i) {
 		monitors.emplace_back(&xorg,
-		                      &backlights[i] ? &backlights[i] : nullptr,
-		                      &als[0] ? &als[0] : nullptr,
+		                      i < xorg.scr_count() ? &backlights[i] : nullptr,
+		                      als.size() > 0 ? &als[0] : nullptr,
 		                      i);
 	}
 
 	assert(monitors.size() == xorg.scr_count());
 }
 
-void scrctl::Brt::start()
+void scrctl::Brightness_Manager::start()
 {
 	for (auto &m : monitors)
-		threads.emplace_back([&] { m.init(); });
+		threads.emplace_back([&] { monitor_init(m); });
 }
 
-void scrctl::Brt::stop()
+void scrctl::Brightness_Manager::stop()
 {
 	for (auto &m : monitors)
-		m.quit();
+		monitor_stop(m);
 	for (auto &t : threads)
 		t.join();
 }
 
-scrctl::Monitor::Monitor(Xorg* xorg, 
+scrctl::Monitor::Monitor(Xorg *xorg,
 		Sysfs::Backlight *bl,
 		Sysfs::ALS *als,
 		int id)
-   :  _xorg(xorg),
-      _bl(bl),
-      _als(als),
-      _id(id),
-      _ss_brt(0),
-      _brt_needs_change(false),
-      _force(false),
-      _quit(false)
+   :  xorg(xorg),
+      backlight(bl),
+      als(als),
+      id(id),
+      ss_brt(0),
+      flags({0,0,0})
 {
-	if (!_bl) {
-		_xorg->set_gamma(_id,
+	if (!backlight) {
+		xorg->set_gamma(id,
 		                 brt_steps_max,
-		                 cfg.screens[_id].temp_step);
+		                 cfg.screens[id].temp_step);
 	}
 }
 
 scrctl::Monitor::Monitor(Monitor &&o)
-    :  _xorg(o._xorg),
-       _bl(o._bl),
-       _id(o._id)
+    :  xorg(o.xorg),
+       backlight(o.backlight),
+       id(o.id),
+       flags(o.flags)
 {
 }
 
-void scrctl::Monitor::quit()
+void scrctl::monitor_init(Monitor &mon)
 {
-	_quit = true;
-	_ss_cv.notify_one();
-}
+	Sync brt_sync;
+	brt_sync.flag = false;
 
-void scrctl::Monitor::notify()
-{
-	_force = true;
-	_ss_cv.notify_one();
-}
+	std::thread adjust_thr([&] {
+		monitor_brt_adjust_loop(mon, brt_sync, brt_steps_max);
+	});
+	monitor_is_auto_loop(mon, brt_sync);
 
-void scrctl::Monitor::init()
-{
-	std::condition_variable brt_cv;
-	std::thread brt_thr([&] { brt_adjust_loop(brt_cv, brt_steps_max); });
-	check_auto_brt_loop(brt_cv);
 	{
-		std::lock_guard lock(_brt_mtx);
-		_brt_needs_change = true;
+		std::lock_guard lk(brt_sync.mtx);
+		brt_sync.flag = true;
 	}
-	brt_cv.notify_one();
-	brt_thr.join();
+	brt_sync.cv.notify_one();
+
+	adjust_thr.join();
 }
 
-void scrctl::Monitor::check_auto_brt_loop(std::condition_variable &brt_cv)
+void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_sync)
 {
-	std::mutex mtx;
-	{
-		std::unique_lock lock(mtx);
-		_ss_cv.wait(lock, [&] {
-			return cfg.screens[_id].brt_auto || _quit;
-		});
+	std::mutex mtx; {
+		std::unique_lock lk(mtx);
+		mon.cv.wait(lk, [&] { return !mon.flags.paused; });
 	}
+	if (mon.flags.stopped)
+		return;
+	monitor_capture_loop(mon, brt_sync, Previous_capture_state{0,0,0,0}, 0);
+	monitor_is_auto_loop(mon, brt_sync);
+}
 
-	if (_quit)
+void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_sync, Previous_capture_state prev, int ss_delta)
+{
+	if (mon.flags.paused || mon.flags.stopped)
 		return;
 
-	_force = true;
-	capture_loop(brt_cv, 0);
-	check_auto_brt_loop(brt_cv);
-}
+	const int ss_brt = mon.xorg->get_screen_brightness(mon.id);
+	ss_delta += abs(prev.ss_brt - ss_brt);
 
-void scrctl::Monitor::capture_loop(std::condition_variable &brt_cv, int img_delta)
-{
-	using namespace std::this_thread;
-	using namespace std::chrono;
-
-	if (!cfg.screens[_id].brt_auto || _quit)
-		return;
-
-	const int ss_brt = _xorg->get_screen_brightness(_id);
-	img_delta += abs(prev.ss_brt - ss_brt);
-
-	if (img_delta > cfg.screens[_id].brt_auto_threshold || _force) {
-		img_delta = 0;
-		_force = false;
+	const auto &scr = cfg.screens[mon.id];
+	if (ss_delta > scr.brt_auto_threshold) {
+		ss_delta = 0;
 		{
-			std::lock_guard lock(_brt_mtx);
-			_ss_brt = ss_brt;
-			_brt_needs_change = true;
+			std::lock_guard lk(brt_sync.mtx);
+			brt_sync.flag = true;
+			mon.ss_brt = ss_brt;
 		}
-		brt_cv.notify_one();
+		brt_sync.cv.notify_one();
 	}
 
-	if (cfg.screens[_id].brt_auto_min       != prev.cfg_min
-	    || cfg.screens[_id].brt_auto_max    != prev.cfg_max
-	    || cfg.screens[_id].brt_auto_offset != prev.cfg_offset) {
-		_force = true;
+	if (scr.brt_auto_min != prev.cfg_min
+	    || scr.brt_auto_max != prev.cfg_max
+	    || scr.brt_auto_offset != prev.cfg_offset) {
+		ss_delta = 255;
+		mon.flags.cfg_updated = true; // not worth syncing
 	}
 
 	prev.ss_brt     = ss_brt;
-	prev.cfg_min    = cfg.screens[_id].brt_auto_min;
-	prev.cfg_max    = cfg.screens[_id].brt_auto_max;
-	prev.cfg_offset = cfg.screens[_id].brt_auto_offset;
+	prev.cfg_min    = scr.brt_auto_min;
+	prev.cfg_max    = scr.brt_auto_max;
+	prev.cfg_offset = scr.brt_auto_offset;
 
-	sleep_for(milliseconds(cfg.screens[_id].brt_auto_polling_rate));
-	capture_loop(brt_cv, img_delta);
+	std::this_thread::sleep_for(std::chrono::milliseconds(scr.brt_auto_polling_rate));
+	monitor_capture_loop(mon, brt_sync, prev, ss_delta);
 }
 
-void scrctl::Monitor::brt_adjust_loop(std::condition_variable &brt_cv, int cur_step)
+void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_sync, int cur_step)
 {
-	int ss_brt;
-	{
-		std::unique_lock lock(_brt_mtx);
-		brt_cv.wait(lock, [&] {
-			return _brt_needs_change;
-		});
-		if (_quit)
-			return;
-		_brt_needs_change = false;
-		ss_brt = _ss_brt;
+	int ss_brt; {
+		std::unique_lock lk(brt_sync.mtx);
+		brt_sync.cv.wait(lk, [&] { return brt_sync.flag; });
+		brt_sync.flag = false;
+		ss_brt = mon.ss_brt;
 	}
 
-	const int ss_step = ss_brt * brt_steps_max / 255;
+	if (mon.flags.stopped)
+		return;
 
-	// Offset relative to the max brightness.
-	const int offset_step = cfg.screens[_id].brt_auto_offset
-	        * brt_steps_max
-	        / cfg.screens[_id].brt_auto_max;
+	const auto &scr = cfg.screens[mon.id];
+	const int target_step = calc_brt_target(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
 
-	const int target_step = std::clamp(
-	            brt_steps_max - ss_step + offset_step,
-	            cfg.screens[_id].brt_auto_min,
-	            cfg.screens[_id].brt_auto_max);
-
-	if (cur_step == target_step && !_force)
-		return brt_adjust_loop(brt_cv, cur_step);
-
-	// There is an internal smooth system with backlights, avoid animations for now.
-	if (_bl) {
-		cur_step = target_step;
-		_bl->set(cur_step * _bl->max_brt() / brt_steps_max);
-	} else {
-		Animation a;
-		a.elapsed    = 0.;
-		a.fps        = cfg.brt_auto_fps;
-		a.slice      = 1. / a.fps;
-		a.start_step = cur_step;
-		a.diff       = target_step - a.start_step;
-		a.duration_s = double(cfg.screens[_id].brt_auto_speed) / 1000;
-		cur_step     = brt_animation_loop(-1, cur_step, target_step, a);
+	if (cur_step != target_step || mon.flags.cfg_updated) {
+		mon.flags.cfg_updated = false;
+		if (mon.backlight) {
+			cur_step = target_step;
+			mon.backlight->set(cur_step * mon.backlight->max_brt() / brt_steps_max);
+		} else {
+			Animation a = animation_init(cur_step, target_step, cfg.brt_auto_fps, scr.brt_auto_speed);
+			cur_step = monitor_brt_animation_loop(mon, a, -1, cur_step, target_step, ss_brt);
+		}
 	}
 
-	brt_adjust_loop(brt_cv, cur_step);
+	monitor_brt_adjust_loop(mon, brt_sync, cur_step);
 }
 
-int scrctl::Monitor::brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a)
+int scrctl::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, int cur_step, int target_step, int ss_brt)
 {
-	using namespace std::this_thread;
-	using namespace std::chrono;
-	using namespace std::chrono_literals;
-
-	if (cur_step == target_step && !_force)
+	if (mon.ss_brt != ss_brt)
 		return cur_step;
-
-	_force = false; // warning: shared
-
-	if (_brt_needs_change || !cfg.screens[_id].brt_auto || _quit)
+	if (mon.flags.paused || mon.flags.cfg_updated || mon.flags.stopped)
+		return cur_step;
+	if (cur_step == target_step)
 		return cur_step;
 
 	a.elapsed += a.slice;
-	cur_step = int(std::round(ease_out_expo(a.elapsed, a.start_step, a.diff, a.duration_s)));
+	cur_step = int(round(ease_out_expo(a.elapsed, a.start_step, a.diff, a.duration_s)));
 
 	if (cur_step != prev_step) {
-		cfg.screens[_id].brt_step = cur_step;
-		_xorg->set_gamma(_id,
-		                 cur_step,
-		                 cfg.screens[_id].temp_step);
+		cfg.screens[mon.id].brt_step = cur_step;
+		mon.xorg->set_gamma(mon.id,
+		                    cur_step,
+		                    cfg.screens[mon.id].temp_step);
 	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000 / a.fps));
+	return monitor_brt_animation_loop(mon, a, cur_step, cur_step, target_step, ss_brt);
+}
 
-	sleep_for(milliseconds(1000 / a.fps));
-	return brt_animation_loop(cur_step, cur_step, target_step, a);
+void scrctl::monitor_stop(Monitor &mon)
+{
+	mon.flags.paused = false;
+	mon.flags.stopped = true;
+	mon.cv.notify_one();
+}
+
+void scrctl::monitor_pause(Monitor &mon)
+{
+	mon.flags.paused = true;
+}
+
+void scrctl::monitor_resume(Monitor &mon)
+{
+	mon.flags.paused = false;
+	mon.cv.notify_one();
+}
+
+void scrctl::monitor_toggle(Monitor &mon, bool toggle)
+{
+	if (toggle)
+		monitor_resume(mon);
+	else
+		monitor_pause(mon);
+}
+
+int scrctl::calc_brt_target(int ss_brt, int min, int max, int offset)
+{
+	const int ss_step     = ss_brt * brt_steps_max / 255;
+	const int offset_step = offset * brt_steps_max / max;
+	return std::clamp(brt_steps_max - ss_step + offset_step, min, max);
 }
 
 scrctl::Gamma_Refresh::Gamma_Refresh() : _quit(false)

@@ -54,6 +54,18 @@ double step_to_kelvin(int step, size_t color_ch)
 	return remap(step, 0, temp_steps_max, 1, ingo_thies_table[color_ch]);
 };
 
+Animation animation_init(int start, int end, int fps, int duration_ms)
+{
+	Animation a;
+	a.start_step = start;
+	a.diff       = end - start;
+	a.fps        = fps;
+	a.duration_s = duration_ms / 1000;
+	a.slice      = 1. / a.fps;
+	a.elapsed    = 0.;
+	return a;
+}
+
 double ease_out_expo(double t, double b , double c, double d)
 {
 	return (t == d) ? b + c : c * (-pow(2, -10 * t / d) + 1) + b;

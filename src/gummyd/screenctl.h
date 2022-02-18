@@ -1,4 +1,4 @@
-/**
+﻿/**
 * gummy
 * Copyright (C) 2022  Francesco Fusco
 *
@@ -36,6 +36,13 @@ struct Timestamps {
 void timestamps_update(Timestamps &ts);
 bool is_daytime(const Timestamps &ts);
 
+struct Sync
+{
+	std::condition_variable cv;
+	std::mutex mtx;
+	bool flag;
+};
+
 namespace scrctl {
 
 /**
@@ -44,10 +51,10 @@ namespace scrctl {
  * - time is checked sometime after the start time
  * - the system wakes up
  * - temperature settings change */
-class Temp
+class Temp_Manager
 {
 public:
-	Temp();
+	Temp_Manager();
 	void init(Xorg&);
 	int  current_step() const;
 	void notify();
@@ -56,6 +63,7 @@ private:
 	std::condition_variable _temp_cv;
 	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
 	int  _current_step;
+
 	bool _notified;
 	bool _quit;
 	bool _tick;
@@ -63,49 +71,51 @@ private:
 	void start(Xorg&);
 	void clock(std::condition_variable &cv, std::mutex&);
 	void check_auto_temp_loop(Xorg&, std::mutex&);
-	void temp_loop(Xorg&, std::mutex&, Timestamps&, bool first_step);
+	void temp_loop(Xorg&, std::mutex&, Timestamps&, bool catch_up);
 	void notify_on_wakeup();
 	void temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg&);
 };
 
-class Monitor
+struct Monitor
 {
-public:
-	Monitor(Xorg* xorg, Sysfs::Backlight*, Sysfs::ALS*, int id);
+	Monitor(Xorg*, Sysfs::Backlight*, Sysfs::ALS*, int id);
 	Monitor(Monitor&&);
-	void init();
-	void notify();
-	void quit();
-private:
-	std::condition_variable _ss_cv;
-	std::mutex              _brt_mtx;
-
+	std::condition_variable cv;
+	Xorg                    *xorg;
+	Sysfs::Backlight        *backlight;
+	Sysfs::ALS              *als;
+	int id;
+	int ss_brt;
 	struct {
-		int ss_brt;
-		int cfg_min;
-		int cfg_max;
-		int cfg_offset;
-	} prev;
-	void capture_loop(std::condition_variable&, int img_delta);
-
-	Xorg             *_xorg;
-	Sysfs::Backlight *_bl;
-	Sysfs::ALS       *_als;
-
-	int  _id;
-	int  _ss_brt;
-	bool _brt_needs_change;
-	bool _force;
-	bool _quit;
-
-	void check_auto_brt_loop(std::condition_variable &);
-	void brt_adjust_loop(std::condition_variable&, int cur_step);
-	int  brt_animation_loop(int prev_step, int cur_step, int target_step, Animation a);
+		bool paused;
+		bool stopped;
+		bool cfg_updated;
+	} flags;
 };
 
-struct Brt
+struct Previous_capture_state
 {
-	Brt(Xorg&);
+	int ss_brt;
+	int cfg_min;
+	int cfg_max;
+	int cfg_offset;
+};
+
+void monitor_init(Monitor&);
+void monitor_pause(Monitor&);
+void monitor_resume(Monitor&);
+void monitor_toggle(Monitor&, bool);
+void monitor_stop(Monitor&);
+
+void monitor_is_auto_loop(Monitor&, Sync &brt_sync);
+void monitor_capture_loop(Monitor&, Sync &brt_sync, Previous_capture_state, int ss_delta);
+void monitor_brt_adjust_loop(Monitor&, Sync &brt_sync, int cur_step);
+int  monitor_brt_animation_loop(Monitor&, Animation, int prev_step, int cur_step, int target_step, int ss_brt);
+int  calc_brt_target(int ss_brt, int min, int max, int offset);
+
+struct Brightness_Manager
+{
+	Brightness_Manager(Xorg&);
 	void start();
 	void stop();
 	std::vector<Sysfs::Backlight> backlights;
