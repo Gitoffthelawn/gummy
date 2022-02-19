@@ -59,6 +59,8 @@ namespace Sysfs
 		double _lux_scale;
 	};
 
+	int calc_lux_step(double lux);
+
 	std::vector<Backlight> get_bl();
 	std::vector<ALS> get_als();
 };

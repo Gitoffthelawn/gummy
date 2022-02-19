@@ -34,7 +34,6 @@ std::vector<Sysfs::Backlight> Sysfs::get_bl()
 		bl.emplace_back(udev, s.path().generic_string());
 	}
 	udev_unref(udev);
-	Sysfs::get_als();
 	return bl;
 }
 
@@ -122,6 +121,17 @@ int Sysfs::ALS::get_lux() const
 	udev *u = udev_new();
 	Sysfs::Device d(u, _dev.path());
 	udev_unref(u);
-	const double lux = std::stod(d.get("in_illuminance_raw")) * _lux_scale; 
-	return int(lux);
+	const double lux = std::stod(d.get("in_illuminance_raw")) * _lux_scale;
+	return calc_lux_step(lux);
+}
+
+/* Rationale:
+ * - light is perceived logarithmically by the human eye.
+ * - the max illuminance detected by my laptop sensor is 21090;
+ * - that's roughly 4.3 in log10. Divide by 5 as an approximation. */
+int Sysfs::calc_lux_step(double lux)
+{
+	if (lux == 0.)
+		return 0;
+	return log10(lux) / 5 * brt_steps_max;
 }

@@ -112,6 +112,7 @@ void monitor_capture_loop(Monitor&, Sync &brt_sync, Previous_capture_state, int 
 void monitor_brt_adjust_loop(Monitor&, Sync &brt_sync, int cur_step);
 int  monitor_brt_animation_loop(Monitor&, Animation, int prev_step, int cur_step, int target_step, int ss_brt);
 int  calc_brt_target(int ss_brt, int min, int max, int offset);
+int  calc_brt_target_als(int als_brt, int min, int max, int offset);
 
 struct Brightness_Manager
 {

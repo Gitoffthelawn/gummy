@@ -360,7 +360,12 @@ void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_sync, Previous_capture
 	if (mon.flags.paused || mon.flags.stopped)
 		return;
 
-	const int ss_brt = mon.xorg->get_screen_brightness(mon.id);
+	const int ss_brt = [&] {
+		if (mon.als)
+			return mon.als->get_lux();
+		else
+			return mon.xorg->get_screen_brightness(mon.id); 
+	}();
 	ss_delta += abs(prev.ss_brt - ss_brt);
 
 	const auto &scr = cfg.screens[mon.id];
@@ -403,7 +408,12 @@ void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_sync, int cur_step)
 		return;
 
 	const auto &scr = cfg.screens[mon.id];
-	const int target_step = calc_brt_target(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
+	const int target_step = [&] {
+		if (mon.als)
+			return calc_brt_target_als(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
+		else
+			return calc_brt_target(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
+	}();
 
 	if (cur_step != target_step || mon.flags.cfg_updated) {
 		mon.flags.cfg_updated = false;
@@ -465,6 +475,12 @@ void scrctl::monitor_toggle(Monitor &mon, bool toggle)
 		monitor_resume(mon);
 	else
 		monitor_pause(mon);
+}
+
+int scrctl::calc_brt_target_als(int als_brt, int min, int max, int offset)
+{
+	const int offset_step = offset * brt_steps_max / max;
+       	return std::clamp(als_brt + offset_step, min, max);	
 }
 
 int scrctl::calc_brt_target(int ss_brt, int min, int max, int offset)
