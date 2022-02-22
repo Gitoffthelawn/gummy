@@ -278,6 +278,7 @@ scrctl::Brightness_Manager::Brightness_Manager(Xorg &xorg)
 		monitors.emplace_back(&xorg,
 		                      i < xorg.scr_count() ? &backlights[i] : nullptr,
 		                      als.size() > 0 ? &als[0] : nullptr,
+		                      &als_ev,
 		                      i);
 	}
 
@@ -286,25 +287,68 @@ scrctl::Brightness_Manager::Brightness_Manager(Xorg &xorg)
 
 void scrctl::Brightness_Manager::start()
 {
+	als_stop.flag = false;
+	als_ev.flag = false;
+	threads.emplace_back([&] { als_capture_loop(als[0], als_stop, als_ev); });
 	for (auto &m : monitors)
 		threads.emplace_back([&] { monitor_init(m); });
 }
 
 void scrctl::Brightness_Manager::stop()
 {
+	als_capture_stop(als_stop);
+	als_capture_stop(als_ev);
 	for (auto &m : monitors)
 		monitor_stop(m);
 	for (auto &t : threads)
 		t.join();
 }
 
+void scrctl::als_capture_loop(Sysfs::ALS &als, Sync &stop, Sync &ev)
+{
+	const int prev_step = als.lux_step();
+	als.update();
+	if (prev_step != als.lux_step())
+		als_notify(ev);
+	{
+		std::unique_lock lk(stop.mtx);
+		stop.cv.wait_for(lk, std::chrono::milliseconds(1000));
+	}
+	if (stop.flag)
+		return;
+	als_capture_loop(als, stop, ev);
+}
+
+void scrctl::als_capture_stop(Sync &stop)
+{
+	stop.flag = true;
+	stop.cv.notify_one();
+}
+
+void scrctl::als_notify(Sync &ev)
+{
+	std::lock_guard lk(ev.mtx);
+	ev.flag = true;
+	ev.cv.notify_one();
+}
+
+int scrctl::als_await(Sysfs::ALS &als, Sync &ev)
+{
+	std::unique_lock lk(ev.mtx);
+	ev.cv.wait(lk, [&] { return ev.flag; });
+	ev.flag = false;
+	return als.lux_step();
+}
+
 scrctl::Monitor::Monitor(Xorg *xorg,
 		Sysfs::Backlight *bl,
-		Sysfs::ALS *als,
+        Sysfs::ALS *als,
+        Sync *als_ev,
 		int id)
    :  xorg(xorg),
       backlight(bl),
       als(als),
+      als_ev(als_ev),
       id(id),
       ss_brt(0),
       flags({!cfg.screens[id].brt_auto,0,0})
@@ -326,45 +370,40 @@ scrctl::Monitor::Monitor(Monitor &&o)
 
 void scrctl::monitor_init(Monitor &mon)
 {
-	Sync brt_sync;
-	brt_sync.flag = false;
-
+	Sync brt_ev;
+	brt_ev.flag = false;
 	std::thread adjust_thr([&] {
-		monitor_brt_adjust_loop(mon, brt_sync, brt_steps_max);
+		monitor_brt_adjust_loop(mon, brt_ev, brt_steps_max);
 	});
-	monitor_is_auto_loop(mon, brt_sync);
-
-	{
-		std::lock_guard lk(brt_sync.mtx);
-		brt_sync.flag = true;
-	}
-	brt_sync.cv.notify_one();
-
+	monitor_is_auto_loop(mon, brt_ev);
 	adjust_thr.join();
 }
 
-void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_sync)
+void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
 {
 	std::mutex mtx; {
 		std::unique_lock lk(mtx);
 		mon.cv.wait(lk, [&] { return !mon.flags.paused; });
 	}
-	if (mon.flags.stopped)
+	if (mon.flags.stopped) {
+		{ std::lock_guard lk(brt_ev.mtx);
+		brt_ev.flag = true; }
+		brt_ev.cv.notify_one();
 		return;
-	monitor_capture_loop(mon, brt_sync, Previous_capture_state{0,0,0,0}, 0);
-	monitor_is_auto_loop(mon, brt_sync);
+	}
+	monitor_capture_loop(mon, brt_ev, *mon.als_ev, Previous_capture_state{0,0,0,0}, 0);
+	monitor_is_auto_loop(mon, brt_ev);
 }
 
-void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_sync, Previous_capture_state prev, int ss_delta)
+void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Previous_capture_state prev, int ss_delta)
 {
 	if (mon.flags.paused || mon.flags.stopped)
 		return;
 
 	const int ss_brt = [&] {
 		if (mon.als)
-			return mon.als->get_lux();
-		else
-			return mon.xorg->get_screen_brightness(mon.id); 
+			return als_await(*mon.als, als_ev);
+		return mon.xorg->get_screen_brightness(mon.id);
 	}();
 	ss_delta += abs(prev.ss_brt - ss_brt);
 
@@ -372,11 +411,11 @@ void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_sync, Previous_capture
 	if (ss_delta > scr.brt_auto_threshold) {
 		ss_delta = 0;
 		{
-			std::lock_guard lk(brt_sync.mtx);
-			brt_sync.flag = true;
+			std::lock_guard lk(brt_ev.mtx);
+			brt_ev.flag = true;
 			mon.ss_brt = ss_brt;
 		}
-		brt_sync.cv.notify_one();
+		brt_ev.cv.notify_one();
 	}
 
 	if (scr.brt_auto_min != prev.cfg_min
@@ -391,16 +430,17 @@ void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_sync, Previous_capture
 	prev.cfg_max    = scr.brt_auto_max;
 	prev.cfg_offset = scr.brt_auto_offset;
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(scr.brt_auto_polling_rate));
-	monitor_capture_loop(mon, brt_sync, prev, ss_delta);
+	if (!mon.als)
+		std::this_thread::sleep_for(std::chrono::milliseconds(scr.brt_auto_polling_rate));
+	monitor_capture_loop(mon, brt_ev, als_ev, prev, ss_delta);
 }
 
-void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_sync, int cur_step)
+void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 {
 	int ss_brt; {
-		std::unique_lock lk(brt_sync.mtx);
-		brt_sync.cv.wait(lk, [&] { return brt_sync.flag; });
-		brt_sync.flag = false;
+		std::unique_lock lk(brt_ev.mtx);
+		brt_ev.cv.wait(lk, [&] { return brt_ev.flag; });
+		brt_ev.flag = false;
 		ss_brt = mon.ss_brt;
 	}
 
@@ -426,7 +466,7 @@ void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_sync, int cur_step)
 		}
 	}
 
-	monitor_brt_adjust_loop(mon, brt_sync, cur_step);
+	monitor_brt_adjust_loop(mon, brt_ev, cur_step);
 }
 
 int scrctl::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, int cur_step, int target_step, int ss_brt)

@@ -116,13 +116,18 @@ Sysfs::ALS::ALS(udev *udev, const std::string &path)
 		_lux_scale = std::stod(tmp);
 }
 
-int Sysfs::ALS::get_lux() const
+void Sysfs::ALS::update()
 {
 	udev *u = udev_new();
-	Sysfs::Device d(u, _dev.path());
+	Sysfs::Device dev(u, _dev.path());
 	udev_unref(u);
-	const double lux = std::stod(d.get("in_illuminance_raw")) * _lux_scale;
-	return calc_lux_step(lux);
+	const double lux = std::stod(dev.get("in_illuminance_raw")) * _lux_scale;
+	_lux_step = calc_lux_step(lux);
+}
+
+int Sysfs::ALS::lux_step() const
+{
+	return _lux_step;
 }
 
 /* Rationale:

@@ -53,10 +53,12 @@ namespace Sysfs
 	{
 	public:
 		ALS(udev*, const std::string &path);
-		int get_lux() const;
+		void update();
+		int lux_step() const;
 	private:
 		Device _dev;
 		double _lux_scale;
+		int _lux_step;
 	};
 
 	int calc_lux_step(double lux);

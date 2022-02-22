@@ -78,12 +78,13 @@ private:
 
 struct Monitor
 {
-	Monitor(Xorg*, Sysfs::Backlight*, Sysfs::ALS*, int id);
+    Monitor(Xorg*, Sysfs::Backlight*, Sysfs::ALS*, Sync *als_ev, int id);
 	Monitor(Monitor&&);
 	std::condition_variable cv;
 	Xorg                    *xorg;
 	Sysfs::Backlight        *backlight;
 	Sysfs::ALS              *als;
+	Sync                    *als_ev;
 	int id;
 	int ss_brt;
 	struct {
@@ -108,7 +109,7 @@ void monitor_toggle(Monitor&, bool);
 void monitor_stop(Monitor&);
 
 void monitor_is_auto_loop(Monitor&, Sync &brt_sync);
-void monitor_capture_loop(Monitor&, Sync &brt_sync, Previous_capture_state, int ss_delta);
+void monitor_capture_loop(Monitor&, Sync &brt_ev, Sync &als_ev, Previous_capture_state, int ss_delta);
 void monitor_brt_adjust_loop(Monitor&, Sync &brt_sync, int cur_step);
 int  monitor_brt_animation_loop(Monitor&, Animation, int prev_step, int cur_step, int target_step, int ss_brt);
 int  calc_brt_target(int ss_brt, int min, int max, int offset);
@@ -123,7 +124,14 @@ struct Brightness_Manager
 	std::vector<Sysfs::ALS>       als;
 	std::vector<std::thread>      threads;
 	std::vector<Monitor>          monitors;
+	Sync als_stop;
+	Sync als_ev;
 };
+
+void als_capture_loop(Sysfs::ALS&, Sync&, Sync&);
+void als_capture_stop(Sync&);
+void als_notify(Sync&);
+int  als_await(Sysfs::ALS&, Sync&);
 
 class Gamma_Refresh
 {
