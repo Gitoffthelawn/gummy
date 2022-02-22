@@ -105,13 +105,14 @@ struct Previous_capture_state
 void monitor_init(Monitor&);
 void monitor_pause(Monitor&);
 void monitor_resume(Monitor&);
-void monitor_toggle(Monitor&, bool);
 void monitor_stop(Monitor&);
+void monitor_toggle(Monitor&, bool);
 
 void monitor_is_auto_loop(Monitor&, Sync &brt_sync);
 void monitor_capture_loop(Monitor&, Sync &brt_ev, Sync &als_ev, Previous_capture_state, int ss_delta);
 void monitor_brt_adjust_loop(Monitor&, Sync &brt_sync, int cur_step);
 int  monitor_brt_animation_loop(Monitor&, Animation, int prev_step, int cur_step, int target_step, int ss_brt);
+
 int  calc_brt_target(int ss_brt, int min, int max, int offset);
 int  calc_brt_target_als(int als_brt, int min, int max, int offset);
 

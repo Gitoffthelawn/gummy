@@ -289,7 +289,8 @@ void scrctl::Brightness_Manager::start()
 {
 	als_stop.flag = false;
 	als_ev.flag = false;
-	threads.emplace_back([&] { als_capture_loop(als[0], als_stop, als_ev); });
+	if (als.size() > 0)
+		threads.emplace_back([&] { als_capture_loop(als[0], als_stop, als_ev); });
 	for (auto &m : monitors)
 		threads.emplace_back([&] { monitor_init(m); });
 }
@@ -520,7 +521,7 @@ void scrctl::monitor_toggle(Monitor &mon, bool toggle)
 int scrctl::calc_brt_target_als(int als_brt, int min, int max, int offset)
 {
 	const int offset_step = offset * brt_steps_max / max;
-       	return std::clamp(als_brt + offset_step, min, max);	
+	return std::clamp(als_brt + offset_step, min, max);
 }
 
 int scrctl::calc_brt_target(int ss_brt, int min, int max, int offset)
