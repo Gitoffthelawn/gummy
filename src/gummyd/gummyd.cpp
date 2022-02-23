@@ -29,7 +29,7 @@
 #include <fcntl.h>
 #include <fstream>
 
-void apply_options(const Message &opts, Xorg &xorg, scrctl::Brightness_Manager &brtctl, scrctl::Temp_Manager &tempctl)
+void apply_options(const Message &opts, Xorg &xorg, core::Brightness_Manager &brtctl, core::Temp_Manager &tempctl)
 {
 	bool notify_temp = false;
 
@@ -125,19 +125,18 @@ void apply_options(const Message &opts, Xorg &xorg, scrctl::Brightness_Manager &
 		} else if (opts.temp_auto != -1) {
 			cfg.screens[i].temp_auto = bool(opts.temp_auto);
 			if (opts.temp_auto == 1) {
-				cfg.screens[i].temp_step = tempctl.current_step();
+				cfg.screens[i].temp_step = tempctl.current_step;
 			}
 		}
 
-		xorg.set_gamma(
-		    i,
-		    cfg.screens[i].brt_step,
-		    cfg.screens[i].temp_step
-		);
+		xorg.set_gamma(i,
+		               cfg.screens[i].brt_step,
+		               cfg.screens[i].temp_step);
 	}
 
-	if (notify_temp)
-		tempctl.notify();
+	if (notify_temp) {
+		core::temp_notify(tempctl);
+	}
 }
 
 void init_fifo()
@@ -148,7 +147,7 @@ void init_fifo()
 	}
 }
 
-int message_loop(Xorg &xorg, scrctl::Brightness_Manager &brtctl, scrctl::Temp_Manager &tempctl)
+int message_loop(Xorg &xorg, core::Brightness_Manager &brtctl, core::Temp_Manager &tempctl)
 {
 	std::ifstream fs(fifo_name);
 	if (fs.fail()) {
@@ -192,19 +191,19 @@ int main(int argc, char **argv)
 	// Init fifo
 	init_fifo();
 
-	scrctl::Gamma_Refresh g;
-	scrctl::Brightness_Manager b(xorg);
-	scrctl::Temp_Manager t;
+	core::Gamma_Refresh g;
+	core::Brightness_Manager b(xorg);
+	core::Temp_Manager t(&xorg);
 
 	std::vector<std::thread> threads;
 	threads.reserve(3);
 	threads.emplace_back([&] { g.loop(xorg); });
 	threads.emplace_back([&] { b.start(); });
-	threads.emplace_back([&] { t.init(xorg); });
+	threads.emplace_back([&] { core::temp_init(t); });
 
 	message_loop(xorg, b, t);
 
-	t.stop();
+	temp_stop(t);
 	b.stop();
 	g.stop();
 

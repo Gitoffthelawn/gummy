@@ -25,122 +25,99 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <syslog.h>
 
-void timestamps_update(Timestamps &ts)
+core::Temp_Manager::Temp_Manager(Xorg *xorg)
+    : xorg(xorg),
+      current_step(0),
+      notified(false)
 {
-	// Get current timestamp
-	ts.cur = std::time(nullptr);
-
-	// Get tm struct from it
-	std::tm *cur_tm = std::localtime(&ts.cur);
-
-	// Set hour and min for sunrise
-	const std::string sr(cfg.temp_auto_sunrise);
-	cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
-	cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
-
-	// Subtract adaptation time
-	cur_tm->tm_sec  = 0;
-	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
-
-	ts.sunrise = std::mktime(cur_tm);
-
-	// Set hour and min for sunset
-	const std::string sn(cfg.temp_auto_sunset);
-	cur_tm->tm_hour = std::stoi(sn.substr(0, 2));
-	cur_tm->tm_min  = std::stoi(sn.substr(3, 2));
-
-	// Subtract adaptation time
-	cur_tm->tm_sec  = 0;
-	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
-
-	ts.sunset = std::mktime(cur_tm);
+	auto_sync.wake_up = false;
+	clock_sync.wake_up = false;
 }
 
-bool is_daytime(const Timestamps &ts)
+void core::temp_init(Temp_Manager &t)
 {
-	return ts.cur >= ts.sunrise && ts.cur < ts.sunset;
+	temp_on_system_wakeup(t);
+	temp_start(t);
 }
 
-scrctl::Temp_Manager::Temp_Manager()
-    : _current_step(0),
-      _notified(false),
-      _quit(false),
-      _tick(false)
+void core::temp_start(Temp_Manager &t)
 {
-}
-
-void scrctl::Temp_Manager::init(Xorg &xorg)
-{
-	start(xorg);
-	notify_on_wakeup();
-}
-
-void scrctl::Temp_Manager::notify()
-{
-	_notified = true;
-	_temp_cv.notify_one();
-}
-
-void scrctl::Temp_Manager::stop()
-{
-	_quit = true;
-	_temp_cv.notify_one();
-}
-
-int scrctl::Temp_Manager::current_step() const
-{
-	return _current_step;
-}
-
-void scrctl::Temp_Manager::start(Xorg &xorg)
-{
-	std::mutex temp_mtx;
-	std::condition_variable clock_cv;
-	std::thread clock_thr([&] { clock(clock_cv, temp_mtx); });
-
-	check_auto_temp_loop(xorg, temp_mtx);
-
-	clock_cv.notify_one();
-	clock_thr.join();
-}
-
-void scrctl::Temp_Manager::check_auto_temp_loop(Xorg &xorg, std::mutex &temp_mtx)
-{
-	std::mutex mtx;
-
 	{
-		std::unique_lock lk(mtx);
-		_temp_cv.wait(lk, [&] {
-			return cfg.temp_auto || _quit;
+		std::unique_lock lk(t.auto_sync.mtx);
+		t.auto_sync.cv.wait(lk, [&] {
+			return cfg.temp_auto || t.auto_sync.wake_up;
 		});
+		if (t.auto_sync.wake_up)
+			return;
 	}
 
-	if (_quit)
-		return;
+	std::thread clock_thr([&] { temp_time_check_loop(t); } );
 
 	Timestamps ts;
 	timestamps_update(ts);
-	_tick = true;
-	temp_loop(xorg, temp_mtx, ts, true);
+	temp_notify(t);
+	temp_adjust_loop(t, ts, true);
 
-	check_auto_temp_loop(xorg, temp_mtx);
+	t.clock_sync.cv.notify_one();
+	clock_thr.join();
 }
 
-void scrctl::Temp_Manager::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamps &ts, bool catch_up)
+void core::temp_notify(Temp_Manager &t)
 {
 	{
-		std::unique_lock lk(temp_mtx);
-		_temp_cv.wait(lk, [&] {
-			return !catch_up || _tick || _notified || _quit;
+		std::lock_guard(t.auto_sync.mtx);
+		t.notified = true;
+	}
+	t.auto_sync.cv.notify_one();
+}
+
+void core::temp_stop(Temp_Manager &t)
+{
+	{
+		std::lock_guard(t.auto_sync.mtx);
+		t.auto_sync.wake_up = true;
+	}
+	t.auto_sync.cv.notify_one();
+	t.clock_sync.cv.notify_one();
+}
+
+void core::temp_time_check_loop(Temp_Manager &t)
+{
+	using namespace std::chrono;
+	using namespace std::chrono_literals;
+	{
+		std::unique_lock lk(t.clock_sync.mtx);
+		t.clock_sync.cv.wait_until(lk, system_clock::now() + 60s, [&t] {
+			return t.auto_sync.wake_up;
 		});
-		if (_quit)
+		if (t.auto_sync.wake_up)
 			return;
-		if (_notified) {
-			_notified = false;
+	}
+	if (!cfg.temp_auto)
+		return;
+	{
+		std::lock_guard lk(t.clock_sync.mtx);
+		t.clock_sync.wake_up = true;
+	}
+	t.auto_sync.cv.notify_one();
+	temp_time_check_loop(t);
+}
+
+void core::temp_adjust_loop(Temp_Manager &t, Timestamps &ts, bool catch_up)
+{
+	{
+		std::unique_lock lk(t.auto_sync.mtx);
+		t.auto_sync.cv.wait(lk, [&] {
+			return !catch_up || t.notified || t.clock_sync.wake_up || t.auto_sync.wake_up;
+		});
+		if (t.auto_sync.wake_up)
+			return;
+		if (t.notified) {
+			t.notified = false;
 			catch_up = true;
 			timestamps_update(ts);
 		}
-		_tick = false;
+		t.clock_sync.wake_up = false;
 	}
 
 	if (!cfg.temp_auto)
@@ -178,96 +155,64 @@ void scrctl::Temp_Manager::temp_loop(Xorg &xorg, std::mutex &temp_mtx, Timestamp
 	}
 
 	const int target_step = int(remap(target_temp, temp_k_max, temp_k_min, temp_steps_max, 0));
-	if (_current_step != target_step) {
-		Animation a;
-		a.elapsed    = 0.;
-		a.fps        = cfg.temp_auto_fps;
-		a.slice      = 1. / a.fps;
-		a.duration_s = animation_s;
-		a.start_step = _current_step;
-		a.diff       = target_step - a.start_step;
-		temp_animation_loop(-1, _current_step, target_step, a, xorg);
+	if (t.current_step != target_step) {
+		Animation a = animation_init(t.current_step, target_step, cfg.temp_auto_fps, animation_s * 1000);
+		temp_animation_loop(t, a, -1, t.current_step, target_step);
 	}
 
-	temp_loop(xorg, temp_mtx, ts, !catch_up);
+	temp_adjust_loop(t, ts, !catch_up);
 }
 
-void scrctl::Temp_Manager::clock(std::condition_variable &cv, std::mutex &temp_mtx)
+void core::temp_animation_loop(Temp_Manager &t, Animation a, int prev_step, int cur_step, int target_step)
 {
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
 
-	std::mutex mtx;
-
-	{
-		std::unique_lock lk(mtx);
-		cv.wait_until(lk, system_clock::now() + 60s, [&] {
-			return _quit;
-		});
-	}
-
-	if (_quit || !cfg.temp_auto)
-		return;
-
-	{
-		std::lock_guard lk(temp_mtx);
-		_tick = true;
-	}
-
-	_temp_cv.notify_one();
-	clock(cv, mtx);
-}
-
-void scrctl::Temp_Manager::temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg &xorg)
-{
-	using namespace std::this_thread;
-	using namespace std::chrono;
-	using namespace std::chrono_literals;
-
-	if (_current_step == target_step || _notified || !cfg.temp_auto || _quit)
+	if (cur_step == target_step)
+		return;	
+	if (t.notified || !cfg.temp_auto || t.auto_sync.wake_up)
 		return;
 
 	a.elapsed += a.slice;
-	_current_step = int(ease_in_out_quad(a.elapsed, a.start_step, a.diff, a.duration_s));
+	cur_step = int(ease_in_out_quad(a.elapsed, a.start_step, a.diff, a.duration_s));
+	t.current_step = cur_step;
 
-	if (_current_step != prev_step) {
-		for (size_t i = 0; i < xorg.scr_count(); ++i) {
+	if (cur_step != prev_step) {
+		for (size_t i = 0; i < t.xorg->scr_count(); ++i) {
 			if (cfg.screens[i].temp_auto) {
-				cfg.screens[i].temp_step = _current_step;
-				xorg.set_gamma(i,
-				               cfg.screens[i].brt_step,
-				               _current_step);
+				cfg.screens[i].temp_step = cur_step;
+				t.xorg->set_gamma(i,
+				                  cfg.screens[i].brt_step,
+				                  cur_step);
 			}
 		}
 	}
 
-	sleep_for(milliseconds(1000 / a.fps));
-	temp_animation_loop(cur_step, cur_step, target_step, a, xorg);
+	std::this_thread::sleep_for(milliseconds(1000 / a.fps));
+	temp_animation_loop(t, a, cur_step, cur_step, target_step);
 }
 
-void scrctl::Temp_Manager::notify_on_wakeup()
+void core::temp_on_system_wakeup(Temp_Manager &t)
 {
-	const std::string service("org.freedesktop.login1");
-	const std::string obj_path("/org/freedesktop/login1");
-	const std::string interface("org.freedesktop.login1.Manager");
-	const std::string signal("PrepareForSleep");
-
-	_dbus_proxy = sdbus::createProxy(service, obj_path);
-
+	const std::string service   = "org.freedesktop.login1";
+	const std::string obj_path  = "/org/freedesktop/login1";
+	const std::string interface = "org.freedesktop.login1.Manager";
+	const std::string signal    = "PrepareForSleep";
+	static auto proxy = sdbus::createProxy(service, obj_path);
 	try {
-		_dbus_proxy->registerSignalHandler(interface, signal, [this] (sdbus::Signal &sig) {
+		proxy->registerSignalHandler(interface, signal, [&t] (sdbus::Signal &sig) {
 			bool going_to_sleep;
 			sig >> going_to_sleep;
 			if (!going_to_sleep)
-				notify();
+				temp_notify(t);
 		});
-		_dbus_proxy->finishRegistration();
+		proxy->finishRegistration();
 	} catch (sdbus::Error e) {
 		syslog(LOG_ERR, "sdbus error: %s", e.what());
 	}
 }
 
-scrctl::Brightness_Manager::Brightness_Manager(Xorg &xorg)
+core::Brightness_Manager::Brightness_Manager(Xorg &xorg)
      : backlights(Sysfs::get_bl()),
        als(Sysfs::get_als())
 {
@@ -285,17 +230,17 @@ scrctl::Brightness_Manager::Brightness_Manager(Xorg &xorg)
 	assert(monitors.size() == xorg.scr_count());
 }
 
-void scrctl::Brightness_Manager::start()
+void core::Brightness_Manager::start()
 {
-	als_stop.flag = false;
-	als_ev.flag = false;
+	als_stop.wake_up = false;
+	als_ev.wake_up = false;
 	if (als.size() > 0)
 		threads.emplace_back([&] { als_capture_loop(als[0], als_stop, als_ev); });
 	for (auto &m : monitors)
 		threads.emplace_back([&] { monitor_init(m); });
 }
 
-void scrctl::Brightness_Manager::stop()
+void core::Brightness_Manager::stop()
 {
 	als_capture_stop(als_stop);
 	als_capture_stop(als_ev);
@@ -305,7 +250,7 @@ void scrctl::Brightness_Manager::stop()
 		t.join();
 }
 
-void scrctl::als_capture_loop(Sysfs::ALS &als, Sync &stop, Sync &ev)
+void core::als_capture_loop(Sysfs::ALS &als, Sync &stop, Sync &ev)
 {
 	const int prev_step = als.lux_step();
 	als.update();
@@ -315,33 +260,33 @@ void scrctl::als_capture_loop(Sysfs::ALS &als, Sync &stop, Sync &ev)
 		std::unique_lock lk(stop.mtx);
 		stop.cv.wait_for(lk, std::chrono::milliseconds(1000));
 	}
-	if (stop.flag)
+	if (stop.wake_up)
 		return;
 	als_capture_loop(als, stop, ev);
 }
 
-void scrctl::als_capture_stop(Sync &stop)
+void core::als_capture_stop(Sync &stop)
 {
-	stop.flag = true;
+	stop.wake_up = true;
 	stop.cv.notify_one();
 }
 
-void scrctl::als_notify(Sync &ev)
+void core::als_notify(Sync &ev)
 {
 	std::lock_guard lk(ev.mtx);
-	ev.flag = true;
+	ev.wake_up = true;
 	ev.cv.notify_one();
 }
 
-int scrctl::als_await(Sysfs::ALS &als, Sync &ev)
+int core::als_await(Sysfs::ALS &als, Sync &ev)
 {
 	std::unique_lock lk(ev.mtx);
-	ev.cv.wait(lk, [&] { return ev.flag; });
-	ev.flag = false;
+	ev.cv.wait(lk, [&] { return ev.wake_up; });
+	ev.wake_up = false;
 	return als.lux_step();
 }
 
-scrctl::Monitor::Monitor(Xorg *xorg,
+core::Monitor::Monitor(Xorg *xorg,
 		Sysfs::Backlight *bl,
         Sysfs::ALS *als,
         Sync *als_ev,
@@ -361,7 +306,7 @@ scrctl::Monitor::Monitor(Xorg *xorg,
 	}
 }
 
-scrctl::Monitor::Monitor(Monitor &&o)
+core::Monitor::Monitor(Monitor &&o)
     :  xorg(o.xorg),
        backlight(o.backlight),
        id(o.id),
@@ -369,10 +314,10 @@ scrctl::Monitor::Monitor(Monitor &&o)
 {
 }
 
-void scrctl::monitor_init(Monitor &mon)
+void core::monitor_init(Monitor &mon)
 {
 	Sync brt_ev;
-	brt_ev.flag = false;
+	brt_ev.wake_up = false;
 	std::thread adjust_thr([&] {
 		monitor_brt_adjust_loop(mon, brt_ev, brt_steps_max);
 	});
@@ -380,7 +325,7 @@ void scrctl::monitor_init(Monitor &mon)
 	adjust_thr.join();
 }
 
-void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
+void core::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
 {
 	std::mutex mtx; {
 		std::unique_lock lk(mtx);
@@ -388,7 +333,7 @@ void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
 	}
 	if (mon.flags.stopped) {
 		{ std::lock_guard lk(brt_ev.mtx);
-		brt_ev.flag = true; }
+		brt_ev.wake_up = true; }
 		brt_ev.cv.notify_one();
 		return;
 	}
@@ -396,7 +341,7 @@ void scrctl::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
 	monitor_is_auto_loop(mon, brt_ev);
 }
 
-void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Previous_capture_state prev, int ss_delta)
+void core::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Previous_capture_state prev, int ss_delta)
 {
 	if (mon.flags.paused || mon.flags.stopped)
 		return;
@@ -413,7 +358,7 @@ void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Prev
 		ss_delta = 0;
 		{
 			std::lock_guard lk(brt_ev.mtx);
-			brt_ev.flag = true;
+			brt_ev.wake_up = true;
 			mon.ss_brt = ss_brt;
 		}
 		brt_ev.cv.notify_one();
@@ -436,12 +381,12 @@ void scrctl::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Prev
 	monitor_capture_loop(mon, brt_ev, als_ev, prev, ss_delta);
 }
 
-void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
+void core::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 {
 	int ss_brt; {
 		std::unique_lock lk(brt_ev.mtx);
-		brt_ev.cv.wait(lk, [&] { return brt_ev.flag; });
-		brt_ev.flag = false;
+		brt_ev.cv.wait(lk, [&] { return brt_ev.wake_up; });
+		brt_ev.wake_up = false;
 		ss_brt = mon.ss_brt;
 	}
 
@@ -470,7 +415,7 @@ void scrctl::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 	monitor_brt_adjust_loop(mon, brt_ev, cur_step);
 }
 
-int scrctl::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, int cur_step, int target_step, int ss_brt)
+int core::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, int cur_step, int target_step, int ss_brt)
 {
 	if (mon.ss_brt != ss_brt)
 		return cur_step;
@@ -492,25 +437,25 @@ int scrctl::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step,
 	return monitor_brt_animation_loop(mon, a, cur_step, cur_step, target_step, ss_brt);
 }
 
-void scrctl::monitor_stop(Monitor &mon)
+void core::monitor_stop(Monitor &mon)
 {
 	mon.flags.paused = false;
 	mon.flags.stopped = true;
 	mon.cv.notify_one();
 }
 
-void scrctl::monitor_pause(Monitor &mon)
+void core::monitor_pause(Monitor &mon)
 {
 	mon.flags.paused = true;
 }
 
-void scrctl::monitor_resume(Monitor &mon)
+void core::monitor_resume(Monitor &mon)
 {
 	mon.flags.paused = false;
 	mon.cv.notify_one();
 }
 
-void scrctl::monitor_toggle(Monitor &mon, bool toggle)
+void core::monitor_toggle(Monitor &mon, bool toggle)
 {
 	if (toggle)
 		monitor_resume(mon);
@@ -518,30 +463,30 @@ void scrctl::monitor_toggle(Monitor &mon, bool toggle)
 		monitor_pause(mon);
 }
 
-int scrctl::calc_brt_target_als(int als_brt, int min, int max, int offset)
+int core::calc_brt_target_als(int als_brt, int min, int max, int offset)
 {
 	const int offset_step = offset * brt_steps_max / max;
 	return std::clamp(als_brt + offset_step, min, max);
 }
 
-int scrctl::calc_brt_target(int ss_brt, int min, int max, int offset)
+int core::calc_brt_target(int ss_brt, int min, int max, int offset)
 {
 	const int ss_step     = ss_brt * brt_steps_max / 255;
 	const int offset_step = offset * brt_steps_max / max;
 	return std::clamp(brt_steps_max - ss_step + offset_step, min, max);
 }
 
-scrctl::Gamma_Refresh::Gamma_Refresh() : _quit(false)
+core::Gamma_Refresh::Gamma_Refresh() : _quit(false)
 {
 }
 
-void scrctl::Gamma_Refresh::stop()
+void core::Gamma_Refresh::stop()
 {
 	_quit = true;
 	_cv.notify_one();
 }
 
-void scrctl::Gamma_Refresh::loop(Xorg &xorg)
+void core::Gamma_Refresh::loop(Xorg &xorg)
 {
 	using namespace std::chrono;
 	using namespace std::chrono_literals;
@@ -560,4 +505,40 @@ void scrctl::Gamma_Refresh::loop(Xorg &xorg)
 	if (_quit)
 		return;
 	loop(xorg);
+}
+
+void timestamps_update(Timestamps &ts)
+{
+	// Get current timestamp
+	ts.cur = std::time(nullptr);
+
+	// Get tm struct from it
+	std::tm *cur_tm = std::localtime(&ts.cur);
+
+	// Set hour and min for sunrise
+	const std::string sr(cfg.temp_auto_sunrise);
+	cur_tm->tm_hour = std::stoi(sr.substr(0, 2));
+	cur_tm->tm_min  = std::stoi(sr.substr(3, 2));
+
+	// Subtract adaptation time
+	cur_tm->tm_sec  = 0;
+	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
+
+	ts.sunrise = std::mktime(cur_tm);
+
+	// Set hour and min for sunset
+	const std::string sn(cfg.temp_auto_sunset);
+	cur_tm->tm_hour = std::stoi(sn.substr(0, 2));
+	cur_tm->tm_min  = std::stoi(sn.substr(3, 2));
+
+	// Subtract adaptation time
+	cur_tm->tm_sec  = 0;
+	cur_tm->tm_sec -= cfg.temp_auto_speed * 60;
+
+	ts.sunset = std::mktime(cur_tm);
+}
+
+bool is_daytime(const Timestamps &ts)
+{
+	return ts.cur >= ts.sunrise && ts.cur < ts.sunset;
 }

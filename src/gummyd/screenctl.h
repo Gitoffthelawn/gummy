@@ -40,10 +40,10 @@ struct Sync
 {
 	std::condition_variable cv;
 	std::mutex mtx;
-	bool flag;
+	bool wake_up;
 };
 
-namespace scrctl {
+namespace core {
 
 /**
  * Temperature is adjusted in two steps.
@@ -51,34 +51,29 @@ namespace scrctl {
  * - time is checked sometime after the start time
  * - the system wakes up
  * - temperature settings change */
-class Temp_Manager
+struct Temp_Manager
 {
-public:
-	Temp_Manager();
-	void init(Xorg&);
-	int  current_step() const;
-	void notify();
-	void stop();
-private:
-	std::condition_variable _temp_cv;
-	std::unique_ptr<sdbus::IProxy> _dbus_proxy;
-	int  _current_step;
-
-	bool _notified;
-	bool _quit;
-	bool _tick;
-
-	void start(Xorg&);
-	void clock(std::condition_variable &cv, std::mutex&);
-	void check_auto_temp_loop(Xorg&, std::mutex&);
-	void temp_loop(Xorg&, std::mutex&, Timestamps&, bool catch_up);
-	void notify_on_wakeup();
-	void temp_animation_loop(int prev_step, int cur_step, int target_step, Animation a, Xorg&);
+	Temp_Manager(Xorg*);
+	Xorg *xorg;
+	Sync auto_sync;
+	Sync clock_sync;
+	int  current_step;
+	bool notified;
 };
+
+void temp_on_system_wakeup(Temp_Manager&);
+void temp_init(Temp_Manager&);
+void temp_notify(Temp_Manager&);
+void temp_stop(Temp_Manager&);
+
+void temp_start(Temp_Manager&);
+void temp_time_check_loop(Temp_Manager&);
+void temp_adjust_loop(Temp_Manager&, Timestamps&, bool catch_up);
+void temp_animation_loop(Temp_Manager&, Animation, int prev_step, int cur_step, int target_step);
 
 struct Monitor
 {
-    Monitor(Xorg*, Sysfs::Backlight*, Sysfs::ALS*, Sync *als_ev, int id);
+	Monitor(Xorg*, Sysfs::Backlight*, Sysfs::ALS*, Sync *als_ev, int id);
 	Monitor(Monitor&&);
 	std::condition_variable cv;
 	Xorg                    *xorg;
