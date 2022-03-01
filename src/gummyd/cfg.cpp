@@ -28,6 +28,7 @@ Config cfg;
 Config::Config()
     : _path(path()),
       brt_auto_fps(60),
+      als_polling_rate(5000),
       temp_auto(false),
       temp_auto_fps(45),
       temp_auto_speed(60),
@@ -40,7 +41,7 @@ Config::Config()
 
 Config::Screen::Screen()
     : brt_mode(MANUAL),
-      brt_auto_min(brt_steps_max / 2),
+      brt_auto_min(brt_steps_max / 4),
       brt_auto_max(brt_steps_max),
       brt_auto_offset(0),
       brt_auto_speed(1000),
@@ -127,6 +128,7 @@ void Config::write()
 void Config::from_json(const json &in)
 {
 	brt_auto_fps      = in["brt_auto_fps"];
+	als_polling_rate  = in["als_polling_rate"];
 	temp_auto         = in["temp_auto"];
 	temp_auto_fps     = in["temp_auto_fps"];
 	temp_auto_speed   = in["temp_auto_speed"];
@@ -155,6 +157,7 @@ json Config::to_json()
 {
 	json ret({
 	    {"brt_auto_fps", brt_auto_fps},
+	    {"als_polling_rate", als_polling_rate},
 	    {"temp_auto", temp_auto},
 	    {"temp_auto_fps", temp_auto_fps},
 	    {"temp_auto_speed", temp_auto_speed},
@@ -233,6 +236,7 @@ Message::Message(const std::string &j)
 	brt_auto_offset      = msg["brt_auto_offset"];
 	brt_auto_speed       = msg["brt_auto_speed"];
 	screenshot_rate_ms   = msg["brt_auto_screenshot_rate"];
+	als_poll_rate_ms     = msg["brt_auto_als_poll_rate"];
 	temp_k               = msg["temp_k"];
 	temp_auto            = msg["temp_mode"];
 	temp_day_k           = msg["temp_day_k"];

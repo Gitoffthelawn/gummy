@@ -56,6 +56,7 @@ struct Config
 	Config();
 	const std::string _path;
 	int brt_auto_fps;
+	int als_polling_rate; // ms
 	bool temp_auto;
 	int temp_auto_fps;
 	int temp_auto_speed;
@@ -86,6 +87,7 @@ struct Message
 	int brt_auto_offset      = -1;
 	int brt_auto_speed       = -1;
 	int screenshot_rate_ms   = -1;
+	int als_poll_rate_ms     = -1;
 	int temp_auto            = -1;
 	int temp_k               = -1;
 	int temp_day_k           = -1;

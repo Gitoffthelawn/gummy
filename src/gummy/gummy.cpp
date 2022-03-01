@@ -120,6 +120,7 @@ int main(int argc, const char **argv)
 	int brt_auto_offset = -1;
 	int brt_auto_speed  = -1;
 	int scr_rate        = -1;
+	int als_poll        = -1;
 	int temp            = -1;
 	int tm              = -1;
 	int temp_day        = -1;
@@ -149,8 +150,10 @@ int main(int argc, const char **argv)
 	               "Set automatic brightness offset. Higher = brighter image.")->check(CLI::Range(-100, 100))->group(brt_grp);
 	app.add_option("--brt-auto-speed", brt_auto_speed,
 	               "Set brightness adaptation speed in milliseconds. Default is 1000 ms.")->check(CLI::Range(1, 10000))->group(brt_grp);
-	app.add_option("--screenshot-rate", scr_rate,
-	               "Screenshot rate in milliseconds.\nReducing this value results in a smaller delay before determining the correct brightness, but also increases CPU usage.")->check(CLI::Range(1, 5000))->group(brt_grp);
+	app.add_option("--screen-poll-rate", scr_rate,
+	               "How often to check for screen image changes in milliseconds. Only relevant for screens with brightness mode 1.")->check(CLI::Range(1, 5000))->group(brt_grp);
+	app.add_option("--als-poll-rate", als_poll,
+	               "How often to check for ambient light changes in milliseconds. Only relevant for screens with brightness mode 2.")->check(CLI::Range(1, 30000))->group(brt_grp);
 
 	std::string temp_grp("Temperature options");
 	app.add_option("-t,--temperature", temp,
@@ -189,6 +192,7 @@ int main(int argc, const char **argv)
 		{"brt_auto_offset", brt_auto_offset},
 		{"brt_auto_speed", brt_auto_speed},
 		{"brt_auto_screenshot_rate", scr_rate},
+		{"brt_auto_als_poll_rate", als_poll},
 		{"temp_mode", tm},
 		{"brt_perc", brt},
 		{"temp_k", temp},

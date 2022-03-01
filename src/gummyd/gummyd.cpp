@@ -35,6 +35,11 @@ void apply_options(const Message &opts, Xorg &xorg, core::Brightness_Manager &br
 
 	// Non-screen specific options
 	{
+		if (opts.als_poll_rate_ms != -1) {
+			cfg.als_polling_rate = opts.als_poll_rate_ms;
+			brtctl.als_stop.cv.notify_one();
+		}
+
 		if (opts.temp_day_k != -1) {
 			cfg.temp_auto_high = opts.temp_day_k;
 			notify_temp = true;

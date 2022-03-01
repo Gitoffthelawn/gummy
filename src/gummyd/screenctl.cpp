@@ -258,7 +258,7 @@ void core::als_capture_loop(Sysfs::ALS &als, Sync &stop, Sync &ev)
 		als_notify(ev);
 	{
 		std::unique_lock lk(stop.mtx);
-		stop.cv.wait_for(lk, std::chrono::milliseconds(1000));
+		stop.cv.wait_for(lk, std::chrono::milliseconds(cfg.als_polling_rate));
 	}
 	if (stop.wake_up)
 		return;
