@@ -140,7 +140,7 @@ int main(int argc, const char **argv)
 	app.add_option("-b,--brightness", brt,
 	               "Set screen brightness percentage.")->check(CLI::Range(5, 100))->group(brt_grp);
 	app.add_option("-B,--brt-mode", bm,
-	               "Brightness mode. 0 for manual, 1 for automatic.")->check(CLI::Range(0, 1))->group(brt_grp);
+	               "Brightness mode. 0 = manual, 1 = screenshot, 2 = ALS (if available)")->check(CLI::Range(0, 2))->group(brt_grp);
 	app.add_option("-N,--brt-auto-min", brt_auto_min,
 	               "Set minimum automatic brightness.")->check(CLI::Range(5, 100))->group(brt_grp);
 	app.add_option("-M,--brt-auto-max", brt_auto_max,

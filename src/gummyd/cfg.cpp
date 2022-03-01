@@ -39,7 +39,7 @@ Config::Config()
 }
 
 Config::Screen::Screen()
-    : brt_auto(false),
+    : brt_mode(MANUAL),
       brt_auto_min(brt_steps_max / 2),
       brt_auto_max(brt_steps_max),
       brt_auto_offset(0),
@@ -137,7 +137,7 @@ void Config::from_json(const json &in)
 	screens.clear();
 	for (size_t i = 0; i < in["screens"].size(); ++i) {
 		screens.emplace_back(
-		    in["screens"][i]["brt_auto"],
+		    in["screens"][i]["brt_mode"],
 		    in["screens"][i]["brt_auto_min"],
 		    in["screens"][i]["brt_auto_max"],
 		    in["screens"][i]["brt_auto_offset"],
@@ -167,7 +167,7 @@ json Config::to_json()
 
 	for (const auto &s : screens) {
 		ret["screens"].emplace_back(json({
-		    {"brt_auto", s.brt_auto},
+		    {"brt_mode", s.brt_mode},
 		    {"brt_auto_min", s.brt_auto_min},
 		    {"brt_auto_max", s.brt_auto_max},
 		    {"brt_auto_offset", s.brt_auto_offset},
@@ -199,7 +199,7 @@ std::string Config::path()
 }
 
 Config::Screen::Screen(
-    bool brt_auto,
+    Brt_mode brt_mode,
     int brt_auto_min,
     int brt_auto_max,
     int brt_auto_offset,
@@ -209,7 +209,7 @@ Config::Screen::Screen(
     int brt_step,
     bool temp_auto,
     int temp_step
-    ) : brt_auto(brt_auto),
+    ) : brt_mode(brt_mode),
     brt_auto_min(brt_auto_min),
     brt_auto_max(brt_auto_max),
     brt_auto_offset(brt_auto_offset),
@@ -227,7 +227,7 @@ Message::Message(const std::string &j)
 	json msg = json::parse(j);
 	scr_no               = msg["scr_no"];
 	brt_perc             = msg["brt_perc"];
-	brt_auto             = msg["brt_mode"];
+	brt_mode             = msg["brt_mode"];
 	brt_auto_min         = msg["brt_auto_min"];
 	brt_auto_max         = msg["brt_auto_max"];
 	brt_auto_offset      = msg["brt_auto_offset"];

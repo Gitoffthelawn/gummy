@@ -297,7 +297,7 @@ core::Monitor::Monitor(Xorg *xorg,
       als_ev(als_ev),
       id(id),
       ss_brt(0),
-      flags({!cfg.screens[id].brt_auto,0,0})
+      flags({cfg.screens[id].brt_mode == MANUAL,0,0})
 {
 	if (!backlight) {
 		xorg->set_gamma(id,
@@ -343,17 +343,16 @@ void core::monitor_is_auto_loop(Monitor &mon, Sync &brt_ev)
 
 void core::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Previous_capture_state prev, int ss_delta)
 {
-	if (mon.flags.paused || mon.flags.stopped)
-		return;
-
+	const auto &scr = cfg.screens[mon.id];
 	const int ss_brt = [&] {
-		if (mon.als)
+		if (scr.brt_mode == ALS)
 			return als_await(*mon.als, als_ev);
 		return mon.xorg->get_screen_brightness(mon.id);
 	}();
+	if (mon.flags.paused || mon.flags.stopped)
+		return;
 	ss_delta += abs(prev.ss_brt - ss_brt);
 
-	const auto &scr = cfg.screens[mon.id];
 	if (ss_delta > scr.brt_auto_threshold) {
 		ss_delta = 0;
 		{
@@ -376,7 +375,7 @@ void core::monitor_capture_loop(Monitor &mon, Sync &brt_ev, Sync &als_ev, Previo
 	prev.cfg_max    = scr.brt_auto_max;
 	prev.cfg_offset = scr.brt_auto_offset;
 
-	if (!mon.als)
+	if (scr.brt_mode == SCREENSHOT)
 		std::this_thread::sleep_for(std::chrono::milliseconds(scr.brt_auto_polling_rate));
 	monitor_capture_loop(mon, brt_ev, als_ev, prev, ss_delta);
 }
@@ -395,7 +394,7 @@ void core::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 
 	const auto &scr = cfg.screens[mon.id];
 	const int target_step = [&] {
-		if (mon.als)
+		if (mon.als && scr.brt_mode == ALS)
 			return calc_brt_target_als(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
 		else
 			return calc_brt_target(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
@@ -447,12 +446,14 @@ void core::monitor_stop(Monitor &mon)
 void core::monitor_pause(Monitor &mon)
 {
 	mon.flags.paused = true;
+	als_notify(*mon.als_ev);
 }
 
 void core::monitor_resume(Monitor &mon)
 {
 	mon.flags.paused = false;
 	mon.cv.notify_one();
+	als_notify(*mon.als_ev);
 }
 
 void core::monitor_toggle(Monitor &mon, bool toggle)

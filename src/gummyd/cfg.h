@@ -23,14 +23,14 @@
 #include "../common/defs.h"
 
 using json = nlohmann::json;
-
+enum Brt_mode { MANUAL, SCREENSHOT, ALS };
 struct Config
 {
 	struct Screen
 	{
 		Screen();
 		Screen(
-		    bool brt_auto,
+		    Brt_mode brt_mode,
 		    int brt_auto_min,
 		    int brt_auto_max,
 		    int brt_auto_offset,
@@ -41,7 +41,7 @@ struct Config
 		    bool temp_auto,
 		    int temp_step
 		);
-		bool brt_auto;
+		Brt_mode brt_mode;
 		int brt_auto_min;
 		int brt_auto_max;
 		int brt_auto_offset;
@@ -80,7 +80,7 @@ struct Message
 	Message(const std::string &json);
 	int scr_no               = -1;
 	int brt_perc             = -1;
-	int brt_auto             = -1;
+	int brt_mode             = -1;
 	int brt_auto_min         = -1;
 	int brt_auto_max         = -1;
 	int brt_auto_offset      = -1;
