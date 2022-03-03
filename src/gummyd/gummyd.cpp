@@ -88,8 +88,12 @@ void apply_options(const Message &opts, Xorg &xorg, core::Brightness_Manager &br
 	for (size_t i = start; i <= end; ++i) {
 
 		if (opts.brt_mode != -1) {
-			cfg.screens[i].brt_mode = Brt_mode(opts.brt_mode);
-			monitor_toggle(brtctl.monitors[i], opts.brt_mode != MANUAL);
+			if (opts.brt_mode == ALS && brtctl.als.empty()) {
+				// do nothing
+			} else {
+				cfg.screens[i].brt_mode = Brt_mode(opts.brt_mode);
+				monitor_toggle(brtctl.monitors[i], opts.brt_mode != MANUAL);
+			}
 		}
 
 		if (opts.brt_perc != -1) {
