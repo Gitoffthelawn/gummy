@@ -80,32 +80,27 @@ void Config::init(size_t detected_screens)
 void Config::read()
 {
 	std::ifstream fs(_path, std::fstream::in | std::fstream::app);
-
 	if (fs.fail()) {
 		syslog(LOG_ERR, "Unable to open config\n");
 		return;
 	}
 
 	fs.seekg(0, std::ios::end);
-
 	if (fs.tellg() == 0) {
 		Config::write();
 		return;
 	}
-
 	fs.seekg(0);
 
-	json j;
-
+	json jfs;
 	try {
-		fs >> j;
+		fs >> jfs;
 	} catch (json::exception &e) {
 		syslog(LOG_ERR, "%s\n", e.what());
 		Config::write();
 		return;
 	}
-
-	from_json(j);
+	Config::from_json(json_sanitize(jfs));
 }
 
 void Config::write()
@@ -153,6 +148,43 @@ void Config::from_json(const json &in)
 	}
 }
 
+json json_sanitize(const json &j)
+{
+	Config default_config = Config();
+	size_t input_json_screen_size = j["screens"].size();
+	while (input_json_screen_size--)
+		default_config.screens.emplace_back();
+
+	// update the default json structure with the values found in the config file.
+	json ret = default_config.to_json();
+	ret.update(j);
+
+	// Do the same for the screens (json::update() doesn't work with nested objects).
+	for (size_t i = 0; i < j["screens"].size(); ++i) {
+		json screen_json = screen_to_json(Config::Screen());
+		screen_json.update(j["screens"][i]);
+		ret["screens"][i] = screen_json;
+	}
+
+	return ret;
+}
+
+json screen_to_json(const Config::Screen &s)
+{
+	return json({
+	     {"brt_mode", s.brt_mode},
+	     {"brt_auto_min", s.brt_auto_min},
+	     {"brt_auto_max", s.brt_auto_max},
+	     {"brt_auto_offset", s.brt_auto_offset},
+	     {"brt_auto_speed", s.brt_auto_speed},
+	     {"brt_auto_threshold", s.brt_auto_threshold},
+	     {"brt_auto_polling_rate", s.brt_auto_polling_rate},
+	     {"brt_step", s.brt_step},
+	     {"temp_auto", s.temp_auto},
+	     {"temp_step", s.temp_step},
+	});
+}
+
 json Config::to_json()
 {
 	json ret({
@@ -167,22 +199,8 @@ json Config::to_json()
 	    {"temp_auto_low", temp_auto_low},
 	    {"screens", json::array()}
 	});
-
-	for (const auto &s : screens) {
-		ret["screens"].emplace_back(json({
-		    {"brt_mode", s.brt_mode},
-		    {"brt_auto_min", s.brt_auto_min},
-		    {"brt_auto_max", s.brt_auto_max},
-		    {"brt_auto_offset", s.brt_auto_offset},
-		    {"brt_auto_speed", s.brt_auto_speed},
-		    {"brt_auto_threshold", s.brt_auto_threshold},
-		    {"brt_auto_polling_rate", s.brt_auto_polling_rate},
-		    {"brt_step", s.brt_step},
-		    {"temp_auto", s.temp_auto},
-		    {"temp_step", s.temp_step},
-		}));
-	}
-
+	for (const auto &s : screens)
+		ret["screens"].emplace_back(screen_to_json(s));
 	return ret;
 }
 

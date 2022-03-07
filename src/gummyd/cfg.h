@@ -69,10 +69,13 @@ struct Config
 	std::string path();
 	void init(size_t);
 	void read();
-	void from_json(const json&);
+	void from_json(const json &);
 	void write();
 	json to_json();
 };
+
+json json_sanitize(const json&);
+json screen_to_json(const Config::Screen &s);
 
 extern Config cfg;
 
