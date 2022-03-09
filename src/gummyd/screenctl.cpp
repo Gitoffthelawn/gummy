@@ -400,8 +400,13 @@ void core::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 			return calc_brt_target(ss_brt, scr.brt_auto_min, scr.brt_auto_max, scr.brt_auto_offset);
 	}();
 
-	if (cur_step != target_step || mon.flags.cfg_updated) {
+	if (mon.flags.cfg_updated) {
+		printf("cur_step: %d, brt_step: %d\n", cur_step, scr.brt_step);
+		cur_step = scr.brt_step;
 		mon.flags.cfg_updated = false;
+	}
+
+	if (cur_step != target_step) {
 		if (mon.backlight) {
 			cur_step = target_step;
 			mon.backlight->set(cur_step * mon.backlight->max_brt() / brt_steps_max);
@@ -420,8 +425,6 @@ int core::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, i
 		return cur_step;
 	if (mon.flags.paused || mon.flags.cfg_updated || mon.flags.stopped)
 		return cur_step;
-	if (cur_step == target_step)
-		return cur_step;
 
 	a.elapsed += a.slice;
 	cur_step = int(round(ease_out_expo(a.elapsed, a.start_step, a.diff, a.duration_s)));
@@ -432,6 +435,10 @@ int core::monitor_brt_animation_loop(Monitor &mon, Animation a, int prev_step, i
 		                    cur_step,
 		                    cfg.screens[mon.id].temp_step);
 	}
+
+	if (cur_step == target_step)
+		return cur_step;
+
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000 / a.fps));
 	return monitor_brt_animation_loop(mon, a, cur_step, cur_step, target_step, ss_brt);
 }
