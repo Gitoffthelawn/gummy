@@ -207,7 +207,7 @@ void core::temp_on_system_wakeup(Temp_Manager &t)
 				temp_notify(t);
 		});
 		proxy->finishRegistration();
-	} catch (sdbus::Error e) {
+	} catch (sdbus::Error &e) {
 		syslog(LOG_ERR, "sdbus error: %s", e.what());
 	}
 }

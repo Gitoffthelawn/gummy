@@ -6,6 +6,9 @@ add_compile_definitions(VERSION="${PROJECT_VERSION}")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+add_compile_options("$<$<CONFIG:RELEASE>:-W;-Wall;-O3;-pedantic>")
+add_compile_options("$<$<CONFIG:DEBUG>:-W;-Wall;-Og;-g;-foptimize-sibling-calls;-pedantic>")
+
 include(GNUInstallDirs)
 
 if(NOT CMAKE_BUILD_TYPE)

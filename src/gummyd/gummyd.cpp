@@ -70,7 +70,7 @@ void apply_options(const Message &opts, Xorg &xorg, core::Brightness_Manager &br
 	size_t end = xorg.scr_count() - 1;
 
 	if (opts.scr_no != -1) {
-		if (opts.scr_no > end) {
+		if (size_t(opts.scr_no) > end) {
 			syslog(LOG_ERR, "Screen %d not available", opts.scr_no);
 			return;
 		}
