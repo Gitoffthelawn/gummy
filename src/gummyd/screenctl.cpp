@@ -401,7 +401,6 @@ void core::monitor_brt_adjust_loop(Monitor &mon, Sync &brt_ev, int cur_step)
 	}();
 
 	if (mon.flags.cfg_updated) {
-		printf("cur_step: %d, brt_step: %d\n", cur_step, scr.brt_step);
 		cur_step = scr.brt_step;
 		mon.flags.cfg_updated = false;
 	}
