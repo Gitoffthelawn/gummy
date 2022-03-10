@@ -40,7 +40,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "X11 screen manager")
 
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Francesco Fusco <fushkodev@outlook.it>")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Fushko/gummy")
-set(CPACK_DEBIAN_PACKAGE_SECTION "admin")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
 #set(CPACK_DEBIAN_PACKAGE_DEPENDS "libxext-dev libxcb-randr0-dev libsdbus-c++-dev")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
