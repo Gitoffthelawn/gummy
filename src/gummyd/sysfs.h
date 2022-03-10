@@ -57,6 +57,7 @@ namespace Sysfs
 		int lux_step() const;
 	private:
 		Device _dev;
+		std::string _lux_name;
 		double _lux_scale;
 		int _lux_step;
 	};

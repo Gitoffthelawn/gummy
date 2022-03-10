@@ -111,9 +111,23 @@ Sysfs::ALS::ALS(udev *udev, const std::string &path)
 	: _dev(udev, path),
 	  _lux_scale(1.0)
 {
-	std::string tmp(_dev.get("in_illuminance_scale"));
-	if (!tmp.empty()) 
-		_lux_scale = std::stod(tmp);
+	const std::array<std::string, 2> lux_names = {
+	    "in_illuminance_input",
+	    "in_illuminance_raw"
+	};
+	for (const auto &name : lux_names) {
+		if (!_dev.get(name).empty()) {
+			_lux_name = name;
+			break;
+		}
+	}
+	if (_lux_name.empty()) {
+		syslog(LOG_ERR, "ALS output file not found");
+	}
+
+	const std::string scale = _dev.get("in_illuminance_scale");
+	if (!scale.empty())
+		_lux_scale = std::stod(scale);
 }
 
 void Sysfs::ALS::update()
@@ -121,7 +135,7 @@ void Sysfs::ALS::update()
 	udev *u = udev_new();
 	Sysfs::Device dev(u, _dev.path());
 	udev_unref(u);
-	const double lux = std::stod(dev.get("in_illuminance_raw")) * _lux_scale;
+	const double lux = std::stod(dev.get(_lux_name)) * _lux_scale;
 	_lux_step = calc_lux_step(lux);
 }
 
