@@ -66,7 +66,11 @@ Xorg::XCB::XCB()
 	auto scr_ck      = xcb_randr_get_screen_resources(conn, screen->root);
 	auto *scr_rpl    = xcb_randr_get_screen_resources_reply(conn, scr_ck, 0);
 	randr_crtc_count = scr_rpl->num_crtcs;
-	randr_crtcs      = xcb_randr_get_screen_resources_crtcs(scr_rpl);
+
+	auto tmp = xcb_randr_get_screen_resources_crtcs(scr_rpl);
+	randr_crtcs.reserve(randr_crtc_count);
+	for (int i = 0; i < randr_crtc_count; ++i)
+		randr_crtcs.push_back(tmp[i]);
 	free(scr_rpl);
 }
 
@@ -77,11 +81,15 @@ Xorg::XCB::~XCB()
 
 Xorg::Output::Output(const XLib &xlib,
                xcb_randr_crtc_t c,
-               xcb_randr_get_crtc_info_reply_t *i)
+               xcb_randr_get_crtc_info_reply_t *i,
+               size_t ramp_sz)
     : crtc(c),
       _info(i),
-      _image_len(_info->width * _info->height * 4)
+      _image_len(_info->width * _info->height * 4),
+      _ramp_sz(ramp_sz)
 {
+	_ramps.resize(3 * _ramp_sz * sizeof(uint16_t));
+
 	_image = XShmCreateImage(
 	   xlib.dsp,
 	   XDefaultVisual(xlib.dsp, xlib.scr_no),
@@ -106,12 +114,6 @@ Xorg::Output::Output(const XLib &xlib,
 	XShmAttach(xlib.dsp, &_shminfo);
 }
 
-void Xorg::Output::set_ramp_size(int sz)
-{
-	_ramp_sz = sz;
-	_ramps.resize(3 * size_t(sz) * sizeof(uint16_t));
-}
-
 int Xorg::Output::get_image_brightness(const XLib &xlib) const
 {
 	XShmGetImage(xlib.dsp, xlib.root, _image, _info->x, _info->y, AllPlanes);
@@ -129,24 +131,20 @@ Xorg::Output::~Output()
 
 Xorg::Xorg()
 {
-	std::vector<xcb_randr_get_crtc_info_cookie_t> ick;
 	for (int i = 0; i < _xcb.randr_crtc_count; ++i) {
-		ick.push_back(xcb_randr_get_crtc_info(_xcb.conn, _xcb.randr_crtcs[i], 0));
-	}
-	for (int i = 0; i < _xcb.randr_crtc_count; ++i) {
-		auto info = xcb_randr_get_crtc_info_reply(_xcb.conn, ick[i], nullptr);
-		if (info->num_outputs > 0)
-			_outputs.emplace_back(_xlib, _xcb.randr_crtcs[i], info);
-	}
-
-	std::vector<xcb_randr_get_crtc_gamma_cookie_t> gck;
-	for (size_t i = 0; i < _outputs.size(); ++i) {
-		gck.push_back(xcb_randr_get_crtc_gamma(_xcb.conn, _outputs[i].crtc));
-	}
-	for (size_t i = 0; i < _outputs.size(); ++i) {
-		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(_xcb.conn, gck[i], nullptr);
-		_outputs[i].set_ramp_size(gamma_rpl->size);
-		free(gamma_rpl);
+		auto info_cookie = xcb_randr_get_crtc_info(_xcb.conn, _xcb.randr_crtcs[i], 0);
+		auto info = xcb_randr_get_crtc_info_reply(_xcb.conn, info_cookie, nullptr);
+		if (info->num_outputs > 0) {
+			xcb_generic_error_t *e;
+			auto gamma_cookie = xcb_randr_get_crtc_gamma(_xcb.conn, _xcb.randr_crtcs[i]);
+			auto gamma        = xcb_randr_get_crtc_gamma_reply(_xcb.conn, gamma_cookie, &e);
+			if (e) {
+				syslog(LOG_ERR, "xcb_randr_get_crtc_gamma_reply error: %d\n", e->error_code);
+				exit(1);
+			}
+			_outputs.emplace_back(_xlib, _xcb.randr_crtcs[i], info, gamma->size);
+			free(gamma);
+		}
 	}
 }
 
@@ -179,7 +177,7 @@ void Xorg::Output::apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step)
 	const int    ramp_mult = (UINT16_MAX + 1) / _ramp_sz;
 	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
 
-	for (int i = 0; i < _ramp_sz; ++i) {
+	for (size_t i = 0; i < _ramp_sz; ++i) {
 		const int val = std::clamp(int(i * brt_mult), 0, UINT16_MAX);
 		r[i] = uint16_t(val * r_mult);
 		g[i] = uint16_t(val * g_mult);

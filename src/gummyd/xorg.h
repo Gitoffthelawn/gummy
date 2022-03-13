@@ -50,7 +50,7 @@ class Xorg
 		xcb_screen_t *screen;
 		int pref_screen;
 		int randr_crtc_count;
-		xcb_randr_crtc_t *randr_crtcs;
+		std::vector<xcb_randr_crtc_t> randr_crtcs;
 	};
 
 	class Output
@@ -58,7 +58,8 @@ class Xorg
 	public:
 		Output(const XLib &xlib,
 		       const xcb_randr_crtc_t c,
-		       xcb_randr_get_crtc_info_reply_t *i);
+		       xcb_randr_get_crtc_info_reply_t *i,
+		       size_t ramp_sz);
 		~Output();
 
 		xcb_randr_crtc_t crtc;
@@ -72,7 +73,7 @@ class Xorg
 		xcb_randr_get_crtc_info_reply_t *_info;
 		XImage   *_image;
 		uint64_t _image_len;
-		int _ramp_sz;
+		size_t _ramp_sz;
 	};
 
 	public:
