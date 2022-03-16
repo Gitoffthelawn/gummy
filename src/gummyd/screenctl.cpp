@@ -221,7 +221,7 @@ core::Brightness_Manager::Brightness_Manager(Xorg &xorg)
 
 	for (size_t i = 0; i < xorg.scr_count(); ++i) {
 		monitors.emplace_back(&xorg,
-		                      i < xorg.scr_count() ? &backlights[i] : nullptr,
+		                      i < backlights.size() ? &backlights[i] : nullptr,
 		                      als.size() > 0 ? &als[0] : nullptr,
 		                      &als_ev,
 		                      i);
