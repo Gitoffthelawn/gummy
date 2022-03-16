@@ -35,8 +35,6 @@ Xorg::XLib::XLib()
 		syslog(LOG_ERR, "XOpenDisplay failed");
 		std::exit(1);
 	}
-	root   = DefaultRootWindow(dsp);
-	screen = DefaultScreenOfDisplay(dsp);
 	scr_no = DefaultScreen(dsp);
 };
 
@@ -89,34 +87,40 @@ Xorg::Output::Output(const XLib &xlib,
       _ramp_sz(ramp_sz)
 {
 	_ramps.resize(3 * _ramp_sz * sizeof(uint16_t));
+	_image = Xorg::create_shared_image(xlib, _shminfo, _info->width, _info->height);
+}
 
-	_image = XShmCreateImage(
+XImage* Xorg::create_shared_image(const XLib &xlib, XShmSegmentInfo &_shminfo, size_t w, size_t h)
+{
+	XImage *img = XShmCreateImage(
 	   xlib.dsp,
 	   XDefaultVisual(xlib.dsp, xlib.scr_no),
 	   DefaultDepth(xlib.dsp, xlib.scr_no),
 	   ZPixmap,
 	   nullptr,
 	   &_shminfo,
-	   _info->width,
-	   _info->height
-	);
-
-	_shminfo.shmid = shmget(IPC_PRIVATE, _image_len, IPC_CREAT | 0600);
+	   w,
+	   h);
+	_shminfo.shmid = shmget(IPC_PRIVATE, w * h * 4, IPC_CREAT | 0600);
 	void *shm = shmat(_shminfo.shmid, nullptr, SHM_RDONLY);
-
 	if (shm == reinterpret_cast<void*>(-1)) {
 		syslog(LOG_ERR, "shmat failed");
-		std::exit(1);
+		exit(1);
 	}
-
-	_shminfo.shmaddr  = _image->data = reinterpret_cast<char*>(shm);
+	_shminfo.shmaddr = img->data = reinterpret_cast<char*>(shm);
 	_shminfo.readOnly = False;
 	XShmAttach(xlib.dsp, &_shminfo);
+	return img;
 }
 
 int Xorg::Output::get_image_brightness(const XLib &xlib) const
 {
-	XShmGetImage(xlib.dsp, xlib.root, _image, _info->x, _info->y, AllPlanes);
+	XShmGetImage(xlib.dsp,
+	             RootWindow(xlib.dsp, DefaultScreen(xlib.dsp)),
+	             _image,
+	             _info->x,
+	             _info->y,
+	             AllPlanes);
 
 	return calc_brightness(
 	    reinterpret_cast<uint8_t*>(_image->data),

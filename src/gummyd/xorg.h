@@ -37,10 +37,10 @@ class Xorg
 		XLib();
 		~XLib();
 		Display *dsp;
-		Screen  *screen;
-		Window  root;
 		int scr_no;
 	};
+
+	static XImage* create_shared_image(const XLib &xlib, XShmSegmentInfo &_shminfo, size_t w, size_t h);
 
 	struct XCB
 	{
