@@ -84,7 +84,12 @@ Xorg::Xorg()
 	for (auto &o : outputs) {
 		// gamma
 		auto gamma_ck  = xcb_randr_get_crtc_gamma(xcb.conn, o.crtc);
-		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(xcb.conn, gamma_ck, nullptr);
+		xcb_generic_error_t *e;
+		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(xcb.conn, gamma_ck, &e);
+		if (e) {
+			syslog(LOG_ERR, "xcb_randr_get_crtc_gamma_reply error: %d\n", e->error_code);
+			exit(1);
+		}
 		o.ramp_sz = gamma_rpl->size;
 		o.ramps.resize(3 * size_t(o.ramp_sz) * sizeof(uint16_t));
 		free(gamma_rpl);
@@ -119,8 +124,7 @@ int Xorg::get_screen_brightness(int scr_idx)
 	XShmGetImage(xlib.dsp, DefaultRootWindow(xlib.dsp), o->image, o->info->x, o->info->y, AllPlanes);
 	return calc_brightness(
 	    reinterpret_cast<uint8_t*>(o->image->data),
-	    o->image_len
-	 );
+	    o->image_len);
 }
 
 void Xorg::set_gamma(int scr_idx, int brt_step, int temp_step)
