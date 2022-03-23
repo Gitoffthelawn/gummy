@@ -2,9 +2,7 @@
 
 CLI screen manager for X11 that allows automatic and manual brightness/temperature adjustments, via backlight (currently only for embedded displays) and gamma. Multiple monitors are supported.
 
-Automatic brightness is based on screen contents. Support for ambient light sensors is planned.
-
-Disclaimer: this program is still in development! You are welcome and encouraged to submit bug reports, suggestions and pull requests.
+Automatic brightness is based on screen contents or ambient light sensor data.
 
 ## Installation
 
@@ -55,7 +53,9 @@ Quick guide:
 
 `gummy start` starts the daemon responsible for screen adjustments.
 
-`gummy -B 1` enables auto brightness on all screens.
+`gummy -B 1` enables screenshot-based auto brightness, on all screens.
+
+`gummy -B 2` enables ALS-based auto brightness (if available).
 
 `gummy -B 0 -s 1` disables automatic brightness on the second screen.
 
