@@ -30,61 +30,45 @@
 
 #include <vector>
 
+struct XLib
+{
+    XLib();
+	~XLib();
+	Display *dsp;
+};
+
+struct XCB
+{
+    XCB();
+	~XCB();
+	xcb_connection_t *conn;
+	xcb_screen_t *screen;
+	int pref_screen;
+};
+
+struct Output
+{
+    std::vector<uint16_t> ramps;
+	xcb_randr_get_crtc_info_reply_t *info;
+	xcb_randr_crtc_t crtc;
+	XShmSegmentInfo shminfo;
+	XImage *image;
+	uint64_t image_len;
+	int ramp_sz;
+};
+
 class Xorg
 {
-	struct XLib
-	{
-		XLib();
-		~XLib();
-		Display *dsp;
-		int scr_no;
-	};
-
-	static XImage* create_shared_image(const XLib &xlib, XShmSegmentInfo &_shminfo, size_t w, size_t h);
-
-	struct XCB
-	{
-		XCB();
-		~XCB();
-		xcb_connection_t *conn;
-		xcb_screen_t *screen;
-		int pref_screen;
-		int randr_crtc_count;
-		std::vector<xcb_randr_crtc_t> randr_crtcs;
-	};
-
-	class Output
-	{
-	public:
-		Output(const XLib &xlib,
-		       const xcb_randr_crtc_t c,
-		       xcb_randr_get_crtc_info_reply_t *i,
-		       size_t ramp_sz);
-		~Output();
-
-		xcb_randr_crtc_t crtc;
-
-		void set_ramp_size(int);
-		int  get_image_brightness(const XLib &xlib) const;
-		void apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step);
-	private:
-		XShmSegmentInfo _shminfo;
-		std::vector<uint16_t> _ramps;
-		xcb_randr_get_crtc_info_reply_t *_info;
-		XImage   *_image;
-		uint64_t _image_len;
-		size_t _ramp_sz;
-	};
-
-	public:
-	    Xorg();
-		size_t scr_count() const;
-		int  get_screen_brightness(int scr_idx) const;
-		void set_gamma(int scr_idx, int brt, int temp);
-	private:
-		XLib _xlib;
-		XCB  _xcb;
-		std::vector<Output> _outputs;
+public:
+    Xorg();
+	int    get_screen_brightness(int scr_idx);
+	void   set_gamma(int scr_idx, int brt, int temp);
+	size_t scr_count() const;
+private:
+	void apply_gamma_ramp(Output &, int brt_step, int temp_step);
+	std::vector<Output> outputs;
+	XLib xlib;
+	XCB  xcb;
 };
 
 #endif // XCB_H

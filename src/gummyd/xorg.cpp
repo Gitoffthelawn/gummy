@@ -25,33 +25,31 @@
 #include <sys/shm.h>
 #include <syslog.h>
 
-Xorg::XLib::XLib()
+XLib::XLib()
 {
 	if (XInitThreads() == 0) {
 		syslog(LOG_ERR, "XInitThreads failed");
-		std::exit(1);
+		exit(1);
 	}
 	if (!(dsp = XOpenDisplay(nullptr))) {
 		syslog(LOG_ERR, "XOpenDisplay failed");
-		std::exit(1);
+		exit(1);
 	}
-	scr_no = DefaultScreen(dsp);
 };
 
-Xorg::XLib::~XLib()
+XLib::~XLib()
 {
-    XCloseDisplay(dsp);
+	XCloseDisplay(dsp);
 }
 
-Xorg::XCB::XCB()
+XCB::XCB()
     : conn(xcb_connect(nullptr, &pref_screen))
 {
 	int err = xcb_connection_has_error(conn);
 	if (err > 0) {
 		syslog(LOG_ERR, "xcb_connect error %d", err);
-		std::exit(1);
+		exit(1);
 	}
-
 	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(conn));
 	for (int i = 0; iter.rem > 0; --i) {
 		if (i == pref_screen) {
@@ -60,109 +58,77 @@ Xorg::XCB::XCB()
 		}
 		xcb_screen_next(&iter);
 	}
-
-	auto scr_ck      = xcb_randr_get_screen_resources(conn, screen->root);
-	auto *scr_rpl    = xcb_randr_get_screen_resources_reply(conn, scr_ck, 0);
-	randr_crtc_count = scr_rpl->num_crtcs;
-
-	auto tmp = xcb_randr_get_screen_resources_crtcs(scr_rpl);
-	randr_crtcs.reserve(randr_crtc_count);
-	for (int i = 0; i < randr_crtc_count; ++i)
-		randr_crtcs.push_back(tmp[i]);
-	free(scr_rpl);
 }
 
-Xorg::XCB::~XCB()
+XCB::~XCB()
 {
-    xcb_disconnect(conn);
-}
-
-Xorg::Output::Output(const XLib &xlib,
-               xcb_randr_crtc_t c,
-               xcb_randr_get_crtc_info_reply_t *i,
-               size_t ramp_sz)
-    : crtc(c),
-      _info(i),
-      _image_len(_info->width * _info->height * 4),
-      _ramp_sz(ramp_sz)
-{
-	_ramps.resize(3 * _ramp_sz * sizeof(uint16_t));
-	_image = Xorg::create_shared_image(xlib, _shminfo, _info->width, _info->height);
-}
-
-XImage* Xorg::create_shared_image(const XLib &xlib, XShmSegmentInfo &_shminfo, size_t w, size_t h)
-{
-	XImage *img = XShmCreateImage(
-	   xlib.dsp,
-	   XDefaultVisual(xlib.dsp, xlib.scr_no),
-	   DefaultDepth(xlib.dsp, xlib.scr_no),
-	   ZPixmap,
-	   nullptr,
-	   &_shminfo,
-	   w,
-	   h);
-	_shminfo.shmid = shmget(IPC_PRIVATE, w * h * 4, IPC_CREAT | 0600);
-	void *shm = shmat(_shminfo.shmid, nullptr, SHM_RDONLY);
-	if (shm == reinterpret_cast<void*>(-1)) {
-		syslog(LOG_ERR, "shmat failed");
-		exit(1);
-	}
-	_shminfo.shmaddr = img->data = reinterpret_cast<char*>(shm);
-	_shminfo.readOnly = False;
-	XShmAttach(xlib.dsp, &_shminfo);
-	return img;
-}
-
-int Xorg::Output::get_image_brightness(const XLib &xlib) const
-{
-	XShmGetImage(xlib.dsp,
-	             RootWindow(xlib.dsp, DefaultScreen(xlib.dsp)),
-	             _image,
-	             _info->x,
-	             _info->y,
-	             AllPlanes);
-
-	return calc_brightness(
-	    reinterpret_cast<uint8_t*>(_image->data),
-	    _image_len
-	);
-}
-
-Xorg::Output::~Output()
-{
-	free(_info);
+	xcb_disconnect(conn);
 }
 
 Xorg::Xorg()
 {
-	for (int i = 0; i < _xcb.randr_crtc_count; ++i) {
-		auto info_cookie = xcb_randr_get_crtc_info(_xcb.conn, _xcb.randr_crtcs[i], 0);
-		auto info = xcb_randr_get_crtc_info_reply(_xcb.conn, info_cookie, nullptr);
-		if (info->num_outputs > 0) {
-			xcb_generic_error_t *e;
-			auto gamma_cookie = xcb_randr_get_crtc_gamma(_xcb.conn, _xcb.randr_crtcs[i]);
-			auto gamma        = xcb_randr_get_crtc_gamma_reply(_xcb.conn, gamma_cookie, &e);
-			if (e) {
-				syslog(LOG_ERR, "xcb_randr_get_crtc_gamma_reply error: %d\n", e->error_code);
-				exit(1);
-			}
-			_outputs.emplace_back(_xlib, _xcb.randr_crtcs[i], info, gamma->size);
-			free(gamma);
+	auto scr_ck   = xcb_randr_get_screen_resources(xcb.conn, xcb.screen->root);
+	auto *scr_rpl = xcb_randr_get_screen_resources_reply(xcb.conn, scr_ck, 0);
+	xcb_randr_crtc_t *crtcs = xcb_randr_get_screen_resources_crtcs(scr_rpl);
+	for (int i = 0; i < scr_rpl->num_crtcs; ++i) {
+		Output o;
+		o.crtc = crtcs[i];
+		auto crtc_info_ck = xcb_randr_get_crtc_info(xcb.conn, o.crtc, 0);
+		o.info            = xcb_randr_get_crtc_info_reply(xcb.conn, crtc_info_ck, nullptr);
+		if (o.info->num_outputs == 0)
+			continue;
+		outputs.push_back(o);
+	}
+	free(scr_rpl);
+
+	for (auto &o : outputs) {
+		// gamma
+		auto gamma_ck  = xcb_randr_get_crtc_gamma(xcb.conn, o.crtc);
+		auto gamma_rpl = xcb_randr_get_crtc_gamma_reply(xcb.conn, gamma_ck, nullptr);
+		o.ramp_sz = gamma_rpl->size;
+		o.ramps.resize(3 * size_t(o.ramp_sz) * sizeof(uint16_t));
+		free(gamma_rpl);
+
+		// couldn't make the following work when refactored into a function
+		o.image = XShmCreateImage(
+		   xlib.dsp,
+		   DefaultVisual(xlib.dsp, DefaultScreen(xlib.dsp)),
+		   DefaultDepth(xlib.dsp, DefaultScreen(xlib.dsp)),
+		   ZPixmap,
+		   nullptr,
+		   &o.shminfo,
+		   o.info->width,
+		   o.info->height
+		);
+		o.image_len     = o.info->width * o.info->height * 4;
+		o.shminfo.shmid = shmget(IPC_PRIVATE, o.image_len, IPC_CREAT | 0600);
+		void *shm       = shmat(o.shminfo.shmid, nullptr, SHM_RDONLY);
+		if (shm == reinterpret_cast<void*>(-1)) {
+			syslog(LOG_ERR, "shmat failed");
+			exit(1);
 		}
+		o.shminfo.shmaddr  = o.image->data = reinterpret_cast<char*>(shm);
+		o.shminfo.readOnly = False;
+		XShmAttach(xlib.dsp, &o.shminfo);
 	}
 }
 
-int Xorg::get_screen_brightness(int scr_idx) const
+int Xorg::get_screen_brightness(int scr_idx)
 {
-	return _outputs[scr_idx].get_image_brightness(_xlib);
+	Output *o = &outputs[scr_idx];
+	XShmGetImage(xlib.dsp, DefaultRootWindow(xlib.dsp), o->image, o->info->x, o->info->y, AllPlanes);
+	return calc_brightness(
+	    reinterpret_cast<uint8_t*>(o->image->data),
+	    o->image_len
+	 );
 }
 
 void Xorg::set_gamma(int scr_idx, int brt_step, int temp_step)
 {
-	_outputs[scr_idx].apply_gamma_ramp(_xcb, brt_step, temp_step);
+	apply_gamma_ramp(outputs[scr_idx], brt_step, temp_step);
 }
 
-void Xorg::Output::apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step)
+void Xorg::apply_gamma_ramp(Output &o, int brt_step, int temp_step)
 {
 	/**
 	 * The ramp multiplier equals 32 when ramp_sz = 2048, 64 when 1024, etc.
@@ -170,26 +136,26 @@ void Xorg::Output::apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step)
 	 * the RGB channels look like:
 	 * [ 0, 32, 64, 96, ... UINT16_MAX - 32 ]
 	 */
-	uint16_t *r = &_ramps[0 * _ramp_sz];
-	uint16_t *g = &_ramps[1 * _ramp_sz];
-	uint16_t *b = &_ramps[2 * _ramp_sz];
+	uint16_t *r = &o.ramps[0 * o.ramp_sz];
+	uint16_t *g = &o.ramps[1 * o.ramp_sz];
+	uint16_t *b = &o.ramps[2 * o.ramp_sz];
 
 	const double r_mult = step_to_kelvin(temp_step, 0),
 	             g_mult = step_to_kelvin(temp_step, 1),
 	             b_mult = step_to_kelvin(temp_step, 2);
 
-	const int    ramp_mult = (UINT16_MAX + 1) / _ramp_sz;
+	const int    ramp_mult = (UINT16_MAX + 1) / o.ramp_sz;
 	const double brt_mult  = normalize(brt_step, 0, brt_steps_max) * ramp_mult;
 
-	for (size_t i = 0; i < _ramp_sz; ++i) {
+	for (int i = 0; i < o.ramp_sz; ++i) {
 		const int val = std::clamp(int(i * brt_mult), 0, UINT16_MAX);
 		r[i] = uint16_t(val * r_mult);
 		g[i] = uint16_t(val * g_mult);
 		b[i] = uint16_t(val * b_mult);
 	}
 
-	auto c  = xcb_randr_set_crtc_gamma_checked(xcb.conn, crtc, _ramp_sz, r, g, b);
-	auto *e = xcb_request_check(xcb.conn, c);
+	auto c = xcb_randr_set_crtc_gamma_checked(xcb.conn, o.crtc, o.ramp_sz, r, g, b);
+	xcb_generic_error_t *e = xcb_request_check(xcb.conn, c);
 	if (e) {
 		syslog(LOG_ERR, "randr set gamma error: %d", int(e->error_code));
 	}
@@ -197,5 +163,5 @@ void Xorg::Output::apply_gamma_ramp(const XCB &xcb, int brt_step, int temp_step)
 
 size_t Xorg::scr_count() const
 {
-	return _outputs.size();
+	return outputs.size();
 }
